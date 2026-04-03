@@ -27,6 +27,14 @@ Checklist alinhado a `PROJETO.md` e `CRONOGRAMA.md` (Etapas 0–1).
 
 **Segurança:** não commite `.env`; não compartilhe *service_role* nem senha do banco em chat ou repositório público.
 
+### 2.3 Deploy em produção (VPS)
+
+- **`NODE_ENV=production`** ou **`API_ENV=production`**: a API **falha ao iniciar** se `DASHBOARD_AUTH_REQUIRED` não estiver ativo (`true`/`1`), para não expor o modo legado (`?tenantId=` sem Bearer). No front, use **`VITE_DASHBOARD_AUTH_REQUIRED=true`** no build.
+- Webhook com **`?provider=generic`**: em produção configure **`WEBHOOK_GENERIC_SECRET`** e envie o header **`x-webhook-generic-secret`**, ou defina **`ALLOW_INSECURE_GENERIC_WEBHOOK=true`** apenas se aceitar o risco (token só no path).
+- **`HEALTH_READY_TOKEN`** (opcional): se definido, `GET /health/ready` só devolve `database` / `redis` / `queue` com **`Authorization: Bearer <token>`** ou **`X-Health-Token`**; caso contrário responde só `{ ok, ready }`.
+- **Reverse proxy** (Nginx/Caddy): enviar `X-Forwarded-For` / `X-Real-IP` de forma correta; opcionalmente **`TRUST_PROXY_HOPS=1`** (um salto) para o rate limit por IP refletir o cliente real.
+- **`npm audit`:** avisos moderados de **esbuild** via **`drizzle-kit`** (ferramenta CLI em desenvolvimento) podem persistir até o upstream atualizar dependências; não afetam o runtime da API em produção. Evite `npm audit fix --force` sem rever o impacto em migrações.
+
 ### 2.2 Primeiro acesso ao dashboard (conta/tenant do zero)
 
 Se esta a configurar do zero e ainda nao sabe qual ID usar no painel:
@@ -156,7 +164,7 @@ CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
 ```
 
 - `GET /health` — processo vivo + objeto `app`.
-- `GET /health/ready` — `database`, **`redis`** e **`queue`** devem ser `true` (503 se faltar `DATABASE_URL` / `REDIS_URL` ou fila).
+- `GET /health/ready` — `database`, **`redis`** e **`queue`** devem ser `true` (503 se faltar `DATABASE_URL` / `REDIS_URL` ou fila). Se **`HEALTH_READY_TOKEN`** estiver definido, o detalhe só aparece com token (ver secção 2.3).
 
 ### Teste rápido do ingress (substitua pela URL do seed)
 

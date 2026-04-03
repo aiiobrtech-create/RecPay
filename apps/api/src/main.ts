@@ -1,7 +1,9 @@
 import { getAppIdentity, loadMonorepoEnv } from "@re/app-config";
+import { assertProductionDashboardAuthRequired } from "./assert-production-config.js";
 import { buildApp } from "./app.js";
 
 loadMonorepoEnv(import.meta.url);
+assertProductionDashboardAuthRequired();
 
 const identity = getAppIdentity();
 const port = Number(process.env.API_PORT ?? "3000");

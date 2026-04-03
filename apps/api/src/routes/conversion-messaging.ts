@@ -45,8 +45,27 @@ function isAdminAuthorized(req: FastifyRequest): { ok: true } | { ok: false; err
   return { ok: true };
 }
 
+/** Rate limit mais estrito que o global para rotas só com x-admin-token. */
+const adminConversionRouteOpts = {
+  config: {
+    rateLimit: {
+      max: 30,
+      timeWindow: "1 minute" as const,
+    },
+  },
+};
+
 export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
-  app.get("/conversion/recovery-flows", async (req, reply) => {
+  app.addHook("onResponse", async (req, reply) => {
+    if (!req.url?.startsWith("/conversion")) return;
+    if (reply.statusCode >= 400) return;
+    req.log.info(
+      { route: req.url, ip: req.ip, status: reply.statusCode },
+      "admin_conversion_ok",
+    );
+  });
+
+  app.get("/conversion/recovery-flows", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = tenantIdQuery.safeParse(req.query);
@@ -73,7 +92,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     messageTemplateId: z.string().uuid(),
   });
 
-  app.post("/conversion/recovery-flows", async (req, reply) => {
+  app.post("/conversion/recovery-flows", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = createFlowBody.safeParse(req.body);
@@ -108,7 +127,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     messageTemplateId: z.string().uuid().optional(),
   });
 
-  app.patch("/conversion/recovery-flows/:id", async (req, reply) => {
+  app.patch("/conversion/recovery-flows/:id", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const params = patchFlowParams.safeParse(req.params);
@@ -128,7 +147,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true, flow: row };
   });
 
-  app.get("/conversion/message-templates", async (req, reply) => {
+  app.get("/conversion/message-templates", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = tenantIdQuery.safeParse(req.query);
@@ -151,7 +170,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     active: z.boolean().default(true),
   });
 
-  app.post("/conversion/message-templates", async (req, reply) => {
+  app.post("/conversion/message-templates", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = createTemplateBody.safeParse(req.body);
@@ -169,7 +188,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     active: z.boolean().optional(),
   });
 
-  app.patch("/conversion/message-templates/:id", async (req, reply) => {
+  app.patch("/conversion/message-templates/:id", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const params = patchTemplateParams.safeParse(req.params);
@@ -191,7 +210,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     templateId: z.string().uuid(),
   });
 
-  app.get("/conversion/message-variants", async (req, reply) => {
+  app.get("/conversion/message-variants", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = variantsQuery.safeParse(req.query);
@@ -220,7 +239,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     active: z.boolean().default(true),
   });
 
-  app.post("/conversion/message-variants", async (req, reply) => {
+  app.post("/conversion/message-variants", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = createVariantBody.safeParse(req.body);
@@ -249,7 +268,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     active: z.boolean().optional(),
   });
 
-  app.patch("/conversion/message-variants/:id", async (req, reply) => {
+  app.patch("/conversion/message-variants/:id", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const params = patchVariantParams.safeParse(req.params);
@@ -271,7 +290,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     status: z.enum(["pending", "approved", "rejected"]).optional(),
   });
 
-  app.get("/conversion/message-approvals", async (req, reply) => {
+  app.get("/conversion/message-approvals", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = approvalsQuery.safeParse(req.query);
@@ -302,7 +321,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     note: z.string().max(2000).optional(),
   });
 
-  app.post("/conversion/message-approvals/:id/approve", async (req, reply) => {
+  app.post("/conversion/message-approvals/:id/approve", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const params = approvalParams.safeParse(req.params);
@@ -337,7 +356,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true, approval: updated };
   });
 
-  app.post("/conversion/message-approvals/:id/reject", async (req, reply) => {
+  app.post("/conversion/message-approvals/:id/reject", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const params = approvalParams.safeParse(req.params);
@@ -379,7 +398,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
     to: z.string().datetime().optional(),
   });
 
-  app.get("/conversion/metrics", async (req, reply) => {
+  app.get("/conversion/metrics", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = metricsQuery.safeParse(req.query);
@@ -435,7 +454,7 @@ export const conversionMessagingRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Lista operacional agregada de tentativas + mensagem composta (útil para dashboard). */
-  app.get("/conversion/message-attempts", async (req, reply) => {
+  app.get("/conversion/message-attempts", adminConversionRouteOpts, async (req, reply) => {
     const auth = isAdminAuthorized(req);
     if (!auth.ok) return reply.status(401).send({ ok: false, error: auth.error });
     const parsed = z

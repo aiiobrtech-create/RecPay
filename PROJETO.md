@@ -67,13 +67,14 @@ Documento **obrigatório de referência** para qualquer desenvolvimento neste re
 - Limitar tamanho do body; timeout agressivo na camada de entrada; rejeitar content-types inesperados.
 - **Idempotência** por chave derivada do provedor (ou header) para evitar duplicação de efeitos colaterais.
 - Não logar payload completo em produção; se necessário para debug, mascarar PII e usar nível restrito.
+- Provedor **`generic`** (query `provider=generic`): não há HMAC da plataforma; em **produção** exige segredo partilhado (`WEBHOOK_GENERIC_SECRET` + header `x-webhook-generic-secret`) ou flag explícita de insegurança documentada — ver `.env.example` e `INICIAR.md`.
 
 ### 5.4 API pública e HTTP
 
 - **HTTPS** obrigatório em produção.
 - **Rate limiting** por IP e por tenant/API key onde aplicável.
 - **CORS** restrito a origens conhecidas (não `*` com credenciais).
-- Cabeçalhos de segurança adequados (HSTS, etc.) no edge ou no servidor.
+- Cabeçalhos de segurança adequados (HSTS, etc.) no edge ou no servidor (na API JSON o Helmet pode omitir CSP; **CSP** aplica-se sobretudo ao front em `apps/web`).
 - Validação de entrada com schema explícito (ex.: Zod) em todas as entradas mutáveis.
 
 ### 5.5 Dados pessoais (LGPD)

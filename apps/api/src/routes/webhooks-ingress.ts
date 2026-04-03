@@ -15,6 +15,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { enqueueProcessEvent } from "@re/queue";
 import { getDb } from "../db.js";
+import { checkGenericWebhookPolicy } from "../lib/webhook-generic-policy.js";
 import { getEventsQueue } from "../queue-singleton.js";
 
 const providerSchema = z.enum(["hotmart", "kiwify", "hubla", "generic"]).default("generic");
@@ -134,6 +135,11 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
 
       const providerParsed = providerSchema.safeParse(req.query.provider ?? "generic");
       const provider = providerParsed.success ? providerParsed.data : "generic";
+
+      const genericPolicy = checkGenericWebhookPolicy(provider, req.headers);
+      if (!genericPolicy.ok) {
+        return reply.status(genericPolicy.status).send({ ok: false, error: genericPolicy.error });
+      }
 
       const idempotencyKey = stableIdempotencyKey(
         req.headers["x-idempotency-key"] as string | undefined,

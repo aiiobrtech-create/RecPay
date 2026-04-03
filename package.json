@@ -39,7 +39,8 @@
     "smoke:adapters": "node scripts/smoke-adapters.mjs",
     "smoke:api": "node scripts/smoke-dashboard-api.mjs",
     "smoke:pipeline": "node scripts/smoke-pipeline.mjs",
-    "smoke": "npm run smoke:adapters && npm run smoke:api"
+    "smoke": "npm run smoke:adapters && npm run smoke:api",
+    "test:api": "npm run test -w @re/api"
   },
   "engines": {
     "node": ">=20"

@@ -26,6 +26,15 @@ function resolveAllowedOrigins(): string[] {
   ];
 }
 
+/** Número de proxies na frente da API (X-Forwarded-For). Vazio = compatível com `true` (comportamento anterior). */
+function resolveTrustProxy(): boolean | number {
+  const raw = process.env.TRUST_PROXY_HOPS?.trim();
+  if (raw === undefined || raw === "") return true;
+  const n = Number.parseInt(raw, 10);
+  if (Number.isFinite(n) && n >= 0) return n;
+  return true;
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
@@ -33,6 +42,8 @@ export async function buildApp() {
         paths: [
           "req.headers.authorization",
           "req.headers.x-admin-token",
+          "req.headers.x-health-token",
+          "req.headers.x-webhook-generic-secret",
           "req.headers.x-hotmart-hottok",
           "req.headers.x-kiwify-token",
           "req.headers.x-hubla-token",
@@ -41,7 +52,7 @@ export async function buildApp() {
       },
     },
     bodyLimit: 1_048_576,
-    trustProxy: true,
+    trustProxy: resolveTrustProxy(),
   });
 
   const allowedOrigins = resolveAllowedOrigins();
