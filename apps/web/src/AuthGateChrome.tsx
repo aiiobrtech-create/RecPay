@@ -45,11 +45,11 @@ export function AuthGateChrome({ theme, eyebrow, title, children, headerAside }:
             <footer className="auth-gate-form-footer">
               <span>© {year} RecPay</span>
               <nav className="auth-gate-form-footer-links" aria-label="Rodapé do acesso">
-                <a href="mailto:suporte@recoveryengine.com.br">Ajuda</a>
+                <a href="mailto:suporte@recpay.com.br">Ajuda</a>
                 <span className="auth-gate-footer-sep" aria-hidden="true">
                   ·
                 </span>
-                <a href="https://recoveryengine.com.br" target="_blank" rel="noreferrer noopener">
+                <a href="https://recpay.com.br" target="_blank" rel="noreferrer noopener">
                   Política de privacidade
                 </a>
               </nav>
@@ -77,7 +77,7 @@ export function AuthGateChrome({ theme, eyebrow, title, children, headerAside }:
             <p className="auth-gate-aside-lead">
               Integração com plataformas, mensagens e cadência sob seu controle — com histórico e números para a operação.
             </p>
-            <a className="auth-gate-aside-more" href="https://recoveryengine.com.br" target="_blank" rel="noreferrer noopener">
+            <a className="auth-gate-aside-more" href="https://recpay.com.br" target="_blank" rel="noreferrer noopener">
               Saiba mais
               <span className="material-symbols-outlined" aria-hidden="true">
                 open_in_new

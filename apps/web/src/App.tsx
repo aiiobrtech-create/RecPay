@@ -2186,7 +2186,7 @@ export function App() {
         headerAside={
           <a
             className="auth-gate-ghost-btn"
-            href="https://recoveryengine.com.br"
+            href="https://recpay.com.br"
             target="_blank"
             rel="noreferrer noopener"
           >
@@ -4358,7 +4358,7 @@ export function App() {
                   <button className="btn btn-tertiary" onClick={() => navigateToMenu("attempts")}>
                     Ver Tentativas
                   </button>
-                  <button className="btn btn-secondary" onClick={() => window.open("mailto:suporte@recoveryengine.com.br", "_blank")}>
+                  <button className="btn btn-secondary" onClick={() => window.open("mailto:suporte@recpay.com.br", "_blank")}>
                     Falar com suporte
                   </button>
                 </div>
