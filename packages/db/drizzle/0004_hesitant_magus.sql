@@ -1,0 +1,1 @@
+ALTER TYPE "public"."recovery_attempt_status" ADD VALUE 'sent' BEFORE 'failed';

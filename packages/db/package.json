@@ -1,0 +1,31 @@
+{
+  "name": "@re/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.cjs",
+    "db:push": "drizzle-kit push --config drizzle.config.cjs",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.cjs",
+    "db:studio": "drizzle-kit studio --config drizzle.config.cjs",
+    "lint": "echo \"lint pending\""
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.3",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.7.2"
+  }
+}

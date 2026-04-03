@@ -1,0 +1,31 @@
+{
+  "name": "@re/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "lint": "echo \"lint pending\""
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.2.1",
+    "@re/app-config": "file:../../packages/app-config",
+    "@re/core": "file:../../packages/core",
+    "@re/db": "file:../../packages/db",
+    "@re/integrations": "file:../../packages/integrations",
+    "@re/queue": "file:../../packages/queue",
+    "@supabase/supabase-js": "^2.101.0",
+    "fastify": "^5.2.1",
+    "ioredis": "^5.4.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

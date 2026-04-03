@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/authgatechrome.tsx","./src/landingpageapp.tsx","./src/timeserieschart.tsx","./src/dashboard-fetch.ts","./src/main.tsx","./src/recovery-message-preview.ts","./src/supabase-client.ts"],"version":"5.9.3"}

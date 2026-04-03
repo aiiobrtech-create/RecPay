@@ -1,0 +1,51 @@
+{
+  "name": "recovery-engine-brasil",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "patch-package",
+    "build": "npm run build -w @re/app-config && npm run build -w @re/core && npm run build -w @re/frontend && npm run build -w @re/db && npm run build -w @re/queue && npm run build -w @re/integrations && npm run build -w @re/api && npm run build -w @re/worker && npm run build -w @re/web",
+    "dev": "node scripts/dev-stack.mjs",
+    "setup:db": "npm run db:push -w @re/db && npm run db:rls",
+    "dev:api": "npm run dev -w @re/api",
+    "dev:worker": "npm run dev -w @re/worker",
+    "dev:web": "npm run dev -w @re/web",
+    "dev:lp": "npm run dev -w lp",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate -w @re/db",
+    "db:push": "npm run db:push -w @re/db",
+    "db:rls": "node scripts/apply-rls-sql.mjs",
+    "db:migrate": "npm run db:migrate -w @re/db",
+    "db:studio": "npm run db:studio -w @re/db",
+    "check:db": "node scripts/check-db.mjs",
+    "check:dns": "node scripts/check-dns.mjs",
+    "check:queue": "node scripts/check-queue-health.mjs",
+    "compose:database-url": "node scripts/compose-database-url.mjs",
+    "audit:env": "node scripts/audit-env.mjs",
+    "audit:memberships": "node scripts/audit-tenant-memberships.mjs",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "seed:dev-webhook": "node scripts/create-dev-webhook-token.mjs",
+    "seed:admin-sim": "node scripts/seed-admin-simulation.mjs",
+    "tenants:list": "node scripts/list-tenants.mjs",
+    "link:membership": "node scripts/link-user-membership.mjs",
+    "user:create": "node scripts/create-supabase-auth-user.mjs",
+    "user:reset-password": "node scripts/reset-supabase-user-password.mjs",
+    "user:update-email": "node scripts/update-supabase-user-email.mjs",
+    "report:usage": "node scripts/report-tenant-usage.mjs",
+    "smoke:adapters": "node scripts/smoke-adapters.mjs",
+    "smoke:api": "node scripts/smoke-dashboard-api.mjs",
+    "smoke:pipeline": "node scripts/smoke-pipeline.mjs",
+    "smoke": "npm run smoke:adapters && npm run smoke:api"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "patch-package": "^8.0.1"
+  }
+}

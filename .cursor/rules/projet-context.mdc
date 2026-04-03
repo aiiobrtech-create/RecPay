@@ -1,0 +1,16 @@
+---
+description: Fonte da verdade do Recovery Engine — segurança, escalabilidade e escopo do produto
+alwaysApply: true
+---
+
+# Recovery Engine Brasil — contexto obrigatório
+
+Antes de propor ou alterar código neste repositório:
+
+1. **Leia e siga** o arquivo **`PROJETO.md`** na raiz do workspace. Ele define produto, multi-tenant, regras rígidas de segurança, LGPD, webhooks, RLS/Postgres, filas, idempotência e práticas de escala. Para fases, prazos e critérios de conclusão por etapa, use **`CRONOGRAMA.md`**.
+2. **Não contradizer** `PROJETO.md` sem atualizar o próprio `PROJETO.md` e deixar explícito o motivo (ex.: decisão temporária com prazo).
+3. **Prioridade em decisões técnicas:** segurança e escalabilidade desde o início; dados sempre com `tenant_id` e isolamento coerente com o documento; segredos só em servidor; trabalho pesado no worker.
+4. **Banco / Supabase — fluxo por CLI:** mudanças de schema, RLS e dados reproduzíveis devem ser feitas com **comandos e ficheiros versionados** (`drizzle-kit`, `npm run db:*`, **`npm run db:rls`**, `npm run check:db`, Supabase CLI quando existir, `psql` se necessário). **Não** usar o Table Editor como fluxo principal; o painel só para o que a CLI não cobrir (ex.: login OAuth uma vez).
+5. **Supabase MCP no Cursor:** quando o servidor **`user-supabase`** estiver ligado (*Settings → MCP*), usar as ferramentas MCP para inspecionar o projeto remoto (`list_tables`, `execute_sql` para diagnóstico, `apply_migration` para DDL remoto com nome em snake_case). **Manter** o schema em [`packages/db`](packages/db) e SQL em [`packages/db/sql`](packages/db/sql) alinhados com o que for aplicado, para CI e `npm run dev` (runtime Node continua a precisar de **`DATABASE_URL`** no `.env`, exceto se todo o backend migrar para client HTTP).
+
+Documento complementar de visão de produto: `saa_s_recovery_engine_brasil_documento_completo.md`. Setup local e checklist: `INICIAR.md`.

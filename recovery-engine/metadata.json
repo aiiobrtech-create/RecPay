@@ -1,0 +1,5 @@
+{
+  "name": "Recovery Engine",
+  "description": "Plataforma de recuperação automática de vendas para checkouts de alto volume.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@re/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "lint": "echo \"lint pending\""
+  },
+  "dependencies": {
+    "@re/app-config": "file:../../packages/app-config",
+    "@re/core": "file:../../packages/core",
+    "@re/db": "file:../../packages/db",
+    "@re/integrations": "file:../../packages/integrations",
+    "@re/queue": "file:../../packages/queue"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
