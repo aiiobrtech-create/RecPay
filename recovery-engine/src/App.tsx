@@ -42,7 +42,8 @@ import { cn } from '@/src/lib/utils';
 
 /** Painel `@re/web` (login Supabase na raiz). Override: `VITE_DASHBOARD_URL` no `.env` da LP. */
 const DASHBOARD_URL =
-  (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.trim() || 'http://127.0.0.1:5173';
+  (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.trim() ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:5173' : 'https://app.recpay.com.br');
 
 const PROBLEMA_ITEMS = [
   {
