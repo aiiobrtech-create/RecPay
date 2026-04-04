@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import { and, desc, eq } from "drizzle-orm";
-import { recoveryLinks } from "@re/db";
-import { RECOVERY_SALES_TRIGGER_EVENTS } from "@re/core";
-import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
-import { assertTenantManagementAccess, isAdminTokenAuthorized } from "../auth/dashboard-auth.js";
-=======
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { recoveryLinks, tenants } from "@re/db";
 import { RECOVERY_SALES_TRIGGER_EVENTS } from "@re/core";
@@ -16,7 +8,6 @@ import {
   assertTenantManagementAccess,
   formatDashboardActorLabel,
 } from "../auth/dashboard-auth.js";
->>>>>>> codex/tela-aprovacao
 import { getDb } from "../db.js";
 
 const paramsTenant = z.object({
@@ -43,9 +34,7 @@ const recoveryLinkBody = z.object({
 
 const adminReviewBody = z.object({
   approvalNote: z.string().trim().min(1).max(1000).optional(),
-<<<<<<< HEAD
   reviewedBy: z.string().trim().min(1).max(200).optional(),
-=======
 });
 
 const operationalRecoveryLinksQuery = z.object({
@@ -54,7 +43,6 @@ const operationalRecoveryLinksQuery = z.object({
   q: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
->>>>>>> codex/tela-aprovacao
 });
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
@@ -63,9 +51,6 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
   return trimmed ? trimmed : null;
 }
 
-<<<<<<< HEAD
-function requiresReapproval(
-=======
 function requestActorLabel(req: {
   dashboardUserId?: string;
   dashboardUserEmail?: string | null;
@@ -81,7 +66,6 @@ function requestActorLabel(req: {
 }
 
 export function requiresReapproval(
->>>>>>> codex/tela-aprovacao
   existing: typeof recoveryLinks.$inferSelect,
   next: {
     label?: string;
@@ -101,8 +85,6 @@ export function requiresReapproval(
   );
 }
 
-<<<<<<< HEAD
-=======
 function buildOperationalFilters(
   query: z.infer<typeof operationalRecoveryLinksQuery>,
   options?: { includeStatus?: boolean },
@@ -129,7 +111,6 @@ function buildOperationalFilters(
   return filters;
 }
 
->>>>>>> codex/tela-aprovacao
 export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { tenantId: string } }>(
     "/admin/tenants/:tenantId/recovery-links",
@@ -202,11 +183,7 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
           priority: parsedBody.data.priority ?? 0,
           approvalStatus: "pending_review",
           approvalNote: null,
-<<<<<<< HEAD
-          submittedBy: normalizeOptionalText(parsedBody.data.submittedBy) ?? req.tenantMembershipRole ?? null,
-=======
           submittedBy: requestActorLabel(req) ?? normalizeOptionalText(parsedBody.data.submittedBy),
->>>>>>> codex/tela-aprovacao
           reviewedBy: null,
           reviewedAt: null,
         })
@@ -278,17 +255,11 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
           ...(next.productName !== undefined ? { productName: next.productName } : {}),
           ...(parsedBody.data.active !== undefined ? { active: parsedBody.data.active } : {}),
           ...(parsedBody.data.priority !== undefined ? { priority: parsedBody.data.priority } : {}),
-<<<<<<< HEAD
-          ...(parsedBody.data.submittedBy !== undefined
-            ? { submittedBy: normalizeOptionalText(parsedBody.data.submittedBy) }
-            : {}),
-=======
           submittedBy:
             requestActorLabel(req) ??
             (parsedBody.data.submittedBy !== undefined
               ? normalizeOptionalText(parsedBody.data.submittedBy)
               : existing.submittedBy),
->>>>>>> codex/tela-aprovacao
           ...(shouldResetApproval
             ? {
                 approvalStatus: "pending_review" as const,
@@ -314,14 +285,6 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-<<<<<<< HEAD
-      if (!isAdminTokenAuthorized(req)) return reply.status(401).send({ ok: false, error: "admin_token_invalid" });
-
-      const tenantId = z
-        .object({ tenantId: z.string().uuid().optional(), status: z.enum(["pending_review", "approved", "rejected"]).optional() })
-        .safeParse(req.query ?? {});
-      if (!tenantId.success) return reply.status(400).send({ ok: false, error: "invalid_query" });
-=======
       const auth = await assertOperationalAccess(req, reply);
       if (!auth) return;
 
@@ -333,24 +296,10 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
           issues: parsedQuery.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
         });
       }
->>>>>>> codex/tela-aprovacao
 
       const db = getDb();
       if (!db) return reply.status(503).send({ ok: false, error: "database_unavailable" });
 
-<<<<<<< HEAD
-      const filters = [];
-      if (tenantId.data.tenantId) filters.push(eq(recoveryLinks.tenantId, tenantId.data.tenantId));
-      if (tenantId.data.status) filters.push(eq(recoveryLinks.approvalStatus, tenantId.data.status));
-
-      const rows = await db
-        .select()
-        .from(recoveryLinks)
-        .where(filters.length ? and(...filters) : undefined)
-        .orderBy(desc(recoveryLinks.updatedAt));
-
-      return reply.status(200).send({ ok: true, items: rows });
-=======
       const filters = buildOperationalFilters(parsedQuery.data);
       const summaryFilters = buildOperationalFilters(parsedQuery.data, { includeStatus: false });
       const where = filters.length ? and(...filters) : undefined;
@@ -430,7 +379,6 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
         },
         actor: formatDashboardActorLabel(auth.user),
       });
->>>>>>> codex/tela-aprovacao
     },
   );
 
@@ -442,12 +390,9 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-<<<<<<< HEAD
-      if (!isAdminTokenAuthorized(req)) return reply.status(401).send({ ok: false, error: "admin_token_invalid" });
-=======
       const auth = await assertOperationalAccess(req, reply);
       if (!auth) return;
->>>>>>> codex/tela-aprovacao
+
       const parsedParams = z.object({ linkId: z.string().uuid() }).safeParse(req.params ?? {});
       const parsedBody = adminReviewBody.safeParse(req.body ?? {});
       if (!parsedParams.success || !parsedBody.success) {
@@ -462,11 +407,7 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
         .set({
           approvalStatus: "approved",
           approvalNote: parsedBody.data.approvalNote?.trim() ?? null,
-<<<<<<< HEAD
-          reviewedBy: parsedBody.data.reviewedBy?.trim() ?? "admin",
-=======
-          reviewedBy: formatDashboardActorLabel(auth.user),
->>>>>>> codex/tela-aprovacao
+          reviewedBy: parsedBody.data.reviewedBy?.trim() ?? formatDashboardActorLabel(auth.user),
           reviewedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -486,12 +427,9 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-<<<<<<< HEAD
-      if (!isAdminTokenAuthorized(req)) return reply.status(401).send({ ok: false, error: "admin_token_invalid" });
-=======
       const auth = await assertOperationalAccess(req, reply);
       if (!auth) return;
->>>>>>> codex/tela-aprovacao
+
       const parsedParams = z.object({ linkId: z.string().uuid() }).safeParse(req.params ?? {});
       const parsedBody = adminReviewBody.extend({
         approvalNote: z.string().trim().min(1).max(1000),
@@ -508,11 +446,7 @@ export const tenantRecoveryLinksRoutes: FastifyPluginAsync = async (app) => {
         .set({
           approvalStatus: "rejected",
           approvalNote: parsedBody.data.approvalNote.trim(),
-<<<<<<< HEAD
-          reviewedBy: parsedBody.data.reviewedBy?.trim() ?? "admin",
-=======
-          reviewedBy: formatDashboardActorLabel(auth.user),
->>>>>>> codex/tela-aprovacao
+          reviewedBy: parsedBody.data.reviewedBy?.trim() ?? formatDashboardActorLabel(auth.user),
           reviewedAt: new Date(),
           updatedAt: new Date(),
         })
