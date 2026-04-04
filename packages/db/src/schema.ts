@@ -39,24 +39,30 @@ export const messageApprovalStatusEnum = pgEnum("message_approval_status", [
   "rejected",
 ]);
 
-export const tenants = pgTable("tenants", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  /** Nome da empresa (tenant); não confundir com marca do produto (APP_DISPLAY_NAME). */
-  name: text("name").notNull(),
-  /** Limite mensal de eventos ingeridos por tenant (null = sem limite). */
-  planMonthlyEventsLimit: integer("plan_monthly_events_limit"),
-  /** Limite mensal de tentativas de recuperação por tenant (null = sem limite). */
-  planMonthlyRecoveryLimit: integer("plan_monthly_recovery_limit"),
-  /** Janela de cooldown por contato (minutos) para evitar spam. */
-  recoveryContactCooldownMinutes: integer("recovery_contact_cooldown_minutes"),
-  /** Máximo de tentativas por contato em 24h. */
-  recoveryContactMaxAttemptsPerDay: integer("recovery_contact_max_attempts_per_day"),
-  /** Canal de recuperação escolhido no dashboard (fallback para env quando null). */
-  recoveryChannelMode: text("recovery_channel_mode"),
-  /** Provedor webhook preferencial selecionado pelo cliente no dashboard. */
-  webhookProviderPreferred: text("webhook_provider_preferred"),
-});
+export const tenants = pgTable(
+  "tenants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Nome da empresa (tenant); não confundir com marca do produto (APP_DISPLAY_NAME). */
+    name: text("name").notNull(),
+    /** Limite mensal de eventos ingeridos por tenant (null = sem limite). */
+    planMonthlyEventsLimit: integer("plan_monthly_events_limit"),
+    /** Limite mensal de tentativas de recuperação por tenant (null = sem limite). */
+    planMonthlyRecoveryLimit: integer("plan_monthly_recovery_limit"),
+    /** Janela de cooldown por contato (minutos) para evitar spam. */
+    recoveryContactCooldownMinutes: integer("recovery_contact_cooldown_minutes"),
+    /** Máximo de tentativas por contato em 24h. */
+    recoveryContactMaxAttemptsPerDay: integer("recovery_contact_max_attempts_per_day"),
+    /** Canal de recuperação escolhido no dashboard (fallback para env quando null). */
+    recoveryChannelMode: text("recovery_channel_mode"),
+    /** Provedor webhook preferencial selecionado pelo cliente no dashboard. */
+    webhookProviderPreferred: text("webhook_provider_preferred"),
+    /** Preenchido ao provisionar conta via Stripe Checkout (webhook); idempotência por sessão. */
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  },
+  (t) => [unique("tenants_stripe_checkout_session_id_unique").on(t.stripeCheckoutSessionId)],
+);
 
 export const memberships = pgTable(
   "memberships",

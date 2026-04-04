@@ -107,7 +107,11 @@ const viewportEnter = { once: true, margin: '-48px' as const, amount: 0.12 as co
 /** Provas sociais — depoimentos fictícios para demonstração de UI; métricas com linguagem de referência. */
 const SOCIAL_STATS = [
   { label: 'Tempo até o 1º acionamento', value: '< 2 min', hint: 'mediana operacional' },
-  { label: 'Faixa típica de recuperação', value: '15–25%', hint: 'sobre vendas que seriam perdidas*' },
+  {
+    label: 'Recusas no pagamento (referência de mercado)',
+    value: '15–25%',
+    hint: 'faixa citada em pesquisas de e-commerce BR; varia por operação',
+  },
   { label: 'Operações acompanhadas', value: '500+', hint: 'e-commerces e infoprodutos' },
 ] as const;
 
@@ -200,7 +204,7 @@ const PRICING_PLANS = [
     description: 'Volume alto, multi-tenant e requisitos enterprise.',
     monthlyPrice: 1997,
     features: [
-      'Recuperações com franquia ampliada',
+      'Recuperações com franquia ampliada e overage contratual',
       'Domínios e operações ilimitados',
       'Multi-tenant e permissões',
       'SLA e onboarding dedicado',
@@ -568,7 +572,7 @@ function SocialProofSection({ enter }: { enter: ReturnType<typeof useEnterVarian
             Quem vende em escala sente a diferença no caixa.
           </motion.h2>
           <motion.p variants={enter.item} className="mx-auto mt-3 max-w-2xl text-sm text-on-surface-variant sm:mt-4 sm:text-base">
-            Números de referência, depoimentos de operações reais e um fluxo que lembra o que você veria no painel — sem achismo, com rastreio.
+            Faixas de mercado para contexto, depoimentos ilustrativos e um fluxo que lembra o painel — métricas reais vêm do seu rastreio.
           </motion.p>
         </motion.div>
 
@@ -897,8 +901,8 @@ const Navbar = () => {
   );
 };
 
-/** Taxa conservadora de recuperação sobre o que foi perdido (cenário de referência na LP). */
-const SIM_RECUPERACAO_FRAC = 0.3;
+/** Fração do vazamento que vira recuperação no cenário ilustrativo (~10–20% do montante perdido; ver docs/PRECIFICACAO.md). */
+const SIM_RECUPERACAO_FRAC = 0.15;
 /** Custo mensal de referência do produto para estimar multiplicador (mesma ordem do apps/web). */
 const SIM_CUSTO_FERRAMENTA_MENSAL = 997;
 
@@ -1059,8 +1063,8 @@ const FAQ = () => {
       a: "Oferecemos integrações nativas para plataformas como Hotmart, Shopify, Kiwify e via API robusta para sistemas proprietários. O setup inicial leva menos de 10 minutos."
     },
     {
-      q: "Qual o ROI médio da ferramenta?",
-      a: "Nossos clientes reportam em média uma recuperação de 15% a 25% de vendas que seriam totalmente perdidas. O investimento se paga no primeiro dia de operação."
+      q: 'Qual o ROI médio da ferramenta?',
+      a: 'O retorno depende do GMV, do ticket e de quanto da sua receita trava no checkout (falha, abandono, PIX). Pesquisas de mercado citam faixas altas de recusas no pagamento no e-commerce brasileiro — o quanto disso vira receita recuperada varia por operação. O painel mostra recuperação atribuída em reais; na demo alinhamos expectativa com o seu caso e com os limites do plano.',
     },
     {
       q: "A engine suporta multi-tenant?",
@@ -1529,20 +1533,27 @@ export default function App() {
                 <h4 className="mb-5 font-headline text-xl font-bold sm:mb-8 sm:text-2xl">O Custo da Inércia</h4>
                 <div className="space-y-8">
                   <div className="flex gap-4">
-                    <div className="w-1.5 h-12 bg-primary rounded-full" />
+                    <div className="h-12 w-1.5 rounded-full bg-primary" />
                     <div>
-                      <div className="text-4xl font-bold font-headline">68%</div>
-                      <div className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1 font-headline">Abandono médio no BR</div>
+                      <div className="font-headline text-4xl font-bold">15–25%</div>
+                      <div className="mt-1 font-headline text-xs font-bold uppercase tracking-widest text-white/50">
+                        Tentativas recusadas (faixa em pesquisas de e-commerce BR)
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <div className="w-1.5 h-12 bg-red-500 rounded-full" />
+                    <div className="h-12 w-1.5 rounded-full bg-red-500" />
                     <div>
-                      <div className="text-4xl font-bold font-headline">15%</div>
-                      <div className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1 font-headline">Falhas técnicas em checkout</div>
+                      <div className="font-headline text-4xl font-bold">20–30%</div>
+                      <div className="mt-1 font-headline text-xs font-bold uppercase tracking-widest text-white/50">
+                        Recusas por fraude: parcela pode ser falso positivo (faixa citada)
+                      </div>
                     </div>
                   </div>
                 </div>
+                <p className="mt-8 text-[11px] leading-relaxed text-white/45">
+                  Referências de mercado para dimensionar vazamento; não são métricas da sua operação nem promessa de resultado.
+                </p>
                 <div className="mt-12 p-6 bg-white/5 rounded-xl border border-white/10">
                   <p className="text-sm italic font-medium opacity-80">
                     "Muitas empresas focam em trazer tráfego, mas ignoram que o balde está furado na hora de pagar."

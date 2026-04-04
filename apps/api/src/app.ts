@@ -6,6 +6,10 @@ import { conversionMessagingRoutes } from "./routes/conversion-messaging.js";
 import { dashboardMeRoutes } from "./routes/dashboard-me.js";
 import { healthRoutes } from "./routes/health.js";
 import { recoveryAttemptsRoutes } from "./routes/recovery-attempts.js";
+import {
+  stripeBillingWebhookRoutes,
+  stripePreParsingHook,
+} from "./routes/stripe-billing-webhook.js";
 import { tenantLimitsRoutes } from "./routes/tenant-limits.js";
 import { tenantMessageTemplatesRoutes } from "./routes/tenant-message-templates.js";
 import { webhooksIngressRoutes } from "./routes/webhooks-ingress.js";
@@ -47,6 +51,7 @@ export async function buildApp() {
           "req.headers.x-hotmart-hottok",
           "req.headers.x-kiwify-token",
           "req.headers.x-hubla-token",
+          "req.headers.stripe-signature",
         ],
         remove: true,
       },
@@ -80,7 +85,10 @@ export async function buildApp() {
     crossOriginEmbedderPolicy: false,
   });
 
+  app.addHook("preParsing", stripePreParsingHook);
+
   await app.register(healthRoutes);
+  await app.register(stripeBillingWebhookRoutes);
   await app.register(webhooksIngressRoutes);
   await app.register(dashboardMeRoutes);
   await app.register(recoveryAttemptsRoutes);
