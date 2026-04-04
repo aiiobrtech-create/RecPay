@@ -1426,10 +1426,78 @@ select.page-size-select:focus {
   white-space: nowrap;
 }
 
+.recovery-links-bento .account-card {
+  min-height: 100%;
+}
+
+.recovery-link-create-grid,
+.recovery-link-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.recovery-links-list {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recovery-link-item,
+.recovery-link-empty {
+  border: 1px solid color-mix(in srgb, rgba(68, 70, 84, 0.4) 85%, #4d68eb);
+  border-radius: 18px;
+  background: color-mix(in srgb, #1b1c1e 94%, #0b1220);
+  padding: 16px;
+}
+
+.recovery-link-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.recovery-link-item-head strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.recovery-link-item-head .inline-help {
+  margin: 6px 0 0;
+}
+
+.recovery-link-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 12px;
+  color: #8e90a0;
+  font-size: 0.9rem;
+}
+
+.recovery-link-approval-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
 @media (max-width: 640px) {
   .messages-page .integration-toolbar.integration-toolbar--messages,
   .messages-page .integration-header-actions.integration-header-actions--messages {
     flex-wrap: wrap;
+  }
+
+  .recovery-link-create-grid,
+  .recovery-link-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-link-item-head {
+    flex-direction: column;
   }
 }
 
@@ -6261,6 +6329,28 @@ input,
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.account-field--checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(68, 70, 84, 0.4);
+  background: #1b1c1e;
+}
+
+.account-field--checkbox .account-label {
+  margin: 0;
+}
+
+.account-field--checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #4d68eb;
 }
 
 .account-label {

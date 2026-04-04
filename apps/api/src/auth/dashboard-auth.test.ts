@@ -1,10 +1,14 @@
 import type { FastifyRequest } from "fastify";
 import { describe, expect, it } from "vitest";
+<<<<<<< HEAD
 import {
   hasTenantManagementWriteAccess,
   isDashboardAuthEnforced,
   resolveDashboardTenantId,
 } from "./dashboard-auth.js";
+=======
+import { formatDashboardActorLabel, resolveDashboardTenantId } from "./dashboard-auth.js";
+>>>>>>> codex/tela-aprovacao
 
 describe("resolveDashboardTenantId", () => {
   it("uses effective tenant from auth when query omitted", () => {
@@ -37,6 +41,7 @@ describe("resolveDashboardTenantId", () => {
   });
 });
 
+<<<<<<< HEAD
 describe("isDashboardAuthEnforced", () => {
   it("defaults to true when env is unset", () => {
     const prev = process.env.DASHBOARD_AUTH_REQUIRED;
@@ -67,5 +72,24 @@ describe("hasTenantManagementWriteAccess", () => {
     expect(hasTenantManagementWriteAccess("admin")).toBe(true);
     expect(hasTenantManagementWriteAccess("member")).toBe(false);
     expect(hasTenantManagementWriteAccess("readonly")).toBe(false);
+=======
+describe("formatDashboardActorLabel", () => {
+  it("prefers email when present", () => {
+    expect(
+      formatDashboardActorLabel({
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        email: "ops@recpay.com.br",
+      }),
+    ).toBe("ops@recpay.com.br");
+  });
+
+  it("falls back to user id when email is missing", () => {
+    expect(
+      formatDashboardActorLabel({
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        email: null,
+      }),
+    ).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+>>>>>>> codex/tela-aprovacao
   });
 });

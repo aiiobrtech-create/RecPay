@@ -128,6 +128,17 @@ export const memberships = pgTable(
   (t) => [unique("memberships_tenant_user_unique").on(t.tenantId, t.userId)],
 );
 
+/**
+ * Capacidade operacional global no painel (ex.: aprovar links de recuperação).
+ * É separada das memberships por tenant para evitar acoplamento indevido entre operação interna e clientes.
+ */
+export const dashboardOperatorAccess = pgTable("dashboard_operator_access", {
+  userId: uuid("user_id").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  grantedBy: text("granted_by"),
+  note: text("note"),
+});
+
 /** Token opaco do endpoint de webhook por tenant; armazenamos só hash (SHA-256 hex). */
 export const webhookIngressTokens = pgTable("webhook_ingress_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),

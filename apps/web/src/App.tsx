@@ -197,6 +197,7 @@ function mapDashboardApiErrorCode(code: string): string | null {
     no_tenant_membership: "Seu usuário não está vinculado a nenhuma conta.",
     auth_not_configured: "Autenticação do painel não configurada no servidor.",
     insufficient_role: "Seu papel não permite esta operação.",
+    insufficient_operational_access: "Seu usuário não possui permissão operacional para acessar esta área.",
   };
   return map[c] ?? null;
 }
@@ -244,7 +245,7 @@ function statusTone(status: "normal" | "warning" | "exceeded" | "unlimited"): st
 type TimeseriesSortKey = "day" | "events" | "recoveryAttempts";
 type ThemeMode = "dark";
 type SortDirection = "asc" | "desc";
-type SideMenuKey = "dashboard" | "attempts" | "integrations" | "messages" | "support" | "account" | "settings";
+type SideMenuKey = "dashboard" | "attempts" | "integrations" | "messages" | "operations" | "support" | "account" | "settings";
 type WebhookProvider = "hotmart" | "kiwify" | "hubla" | "generic";
 type ProviderKey = WebhookProvider;
 type ProviderConfig = {
@@ -312,6 +313,63 @@ interface DashboardMessageVariant {
   active: boolean;
 }
 
+type RecoveryLinkApprovalStatus = "pending_review" | "approved" | "rejected";
+
+interface DashboardMeTenant {
+  id: string;
+  name: string;
+  role: string;
+}
+
+interface DashboardRecoveryLink {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  tenantId: string;
+  tenantName?: string | null;
+  label: string;
+  url: string;
+  platform: string | null;
+  triggerEventType: string | null;
+  productName: string | null;
+  active: boolean;
+  priority: number;
+  approvalStatus: RecoveryLinkApprovalStatus;
+  approvalNote: string | null;
+  submittedBy: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+type RecoveryLinkDraft = {
+  label: string;
+  url: string;
+  platform: string;
+  triggerEventType: string;
+  productName: string;
+  active: boolean;
+  priority: string;
+  submittedBy: string;
+};
+
+type RecoveryLinkReviewDraft = {
+  approvalNote: string;
+};
+
+type RecoveryLinksQueueSummary = {
+  all: number;
+  pendingReview: number;
+  approved: number;
+  rejected: number;
+};
+
+type RecoveryLinksQueuePagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
 interface TriggerCatalogEntry {
   value: string;
   label: string;
@@ -347,6 +405,78 @@ function providerConfigHasRequiredFields(config: ProviderConfig | null | undefin
       apiKey !== REDACTED_PROVIDER_SECRET &&
       webhookToken !== REDACTED_PROVIDER_SECRET,
   );
+}
+
+function emptyRecoveryLinkDraft(): RecoveryLinkDraft {
+  return {
+    label: "",
+    url: "",
+    platform: "",
+    triggerEventType: "",
+    productName: "",
+    active: true,
+    priority: "0",
+    submittedBy: "",
+  };
+}
+
+function recoveryLinkToDraft(item: DashboardRecoveryLink): RecoveryLinkDraft {
+  return {
+    label: item.label,
+    url: item.url,
+    platform: item.platform ?? "",
+    triggerEventType: item.triggerEventType ?? "",
+    productName: item.productName ?? "",
+    active: item.active,
+    priority: String(item.priority),
+    submittedBy: item.submittedBy ?? "",
+  };
+}
+
+function recoveryLinkStatusLabel(status: RecoveryLinkApprovalStatus): string {
+  switch (status) {
+    case "approved":
+      return "Aprovado";
+    case "rejected":
+      return "Rejeitado";
+    default:
+      return "Pendente de revisão";
+  }
+}
+
+function recoveryLinkStatusTone(status: RecoveryLinkApprovalStatus): "success" | "warning" | "danger" {
+  switch (status) {
+    case "approved":
+      return "success";
+    case "rejected":
+      return "danger";
+    default:
+      return "warning";
+  }
+}
+
+function emptyRecoveryLinkReviewDraft(): RecoveryLinkReviewDraft {
+  return {
+    approvalNote: "",
+  };
+}
+
+function emptyRecoveryLinksQueueSummary(): RecoveryLinksQueueSummary {
+  return {
+    all: 0,
+    pendingReview: 0,
+    approved: 0,
+    rejected: 0,
+  };
+}
+
+function emptyRecoveryLinksQueuePagination(): RecoveryLinksQueuePagination {
+  return {
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    totalPages: 1,
+  };
 }
 
 type DropdownOption<TValue extends string> = {
@@ -491,6 +621,27 @@ export function App() {
   const [messagesSaving, setMessagesSaving] = useState(false);
   const [messagesBootstrapping, setMessagesBootstrapping] = useState(false);
   const [messagesAddingFlow, setMessagesAddingFlow] = useState(false);
+  const [recoveryLinksLoading, setRecoveryLinksLoading] = useState(false);
+  const [recoveryLinksList, setRecoveryLinksList] = useState<DashboardRecoveryLink[]>([]);
+  const [recoveryLinkDrafts, setRecoveryLinkDrafts] = useState<Record<string, RecoveryLinkDraft>>({});
+  const [newRecoveryLinkDraft, setNewRecoveryLinkDraft] = useState<RecoveryLinkDraft>(emptyRecoveryLinkDraft());
+  const [recoveryLinkSavingId, setRecoveryLinkSavingId] = useState<string | null>(null);
+  const [recoveryLinkCreating, setRecoveryLinkCreating] = useState(false);
+  const [adminReviewStatusFilter, setAdminReviewStatusFilter] = useState<RecoveryLinkApprovalStatus | "all">(
+    "pending_review",
+  );
+  const [adminReviewTenantFilter, setAdminReviewTenantFilter] = useState("");
+  const [adminReviewSearch, setAdminReviewSearch] = useState("");
+  const [adminReviewPage, setAdminReviewPage] = useState(1);
+  const [adminRecoveryLinksLoading, setAdminRecoveryLinksLoading] = useState(false);
+  const [adminRecoveryLinksList, setAdminRecoveryLinksList] = useState<DashboardRecoveryLink[]>([]);
+  const [adminRecoveryLinksSummary, setAdminRecoveryLinksSummary] = useState<RecoveryLinksQueueSummary>(
+    emptyRecoveryLinksQueueSummary(),
+  );
+  const [adminRecoveryLinksPagination, setAdminRecoveryLinksPagination] =
+    useState<RecoveryLinksQueuePagination>(emptyRecoveryLinksQueuePagination());
+  const [recoveryLinkReviewDrafts, setRecoveryLinkReviewDrafts] = useState<Record<string, RecoveryLinkReviewDraft>>({});
+  const [recoveryLinkReviewActionId, setRecoveryLinkReviewActionId] = useState<string | null>(null);
   const [newWhatsappTrigger, setNewWhatsappTrigger] = useState("");
   const [variantSavingId, setVariantSavingId] = useState<string | null>(null);
   const [isMessagesTriggerDropdownOpen, setIsMessagesTriggerDropdownOpen] = useState(false);
@@ -517,9 +668,14 @@ export function App() {
   const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  const [serverTenants, setServerTenants] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [serverTenants, setServerTenants] = useState<DashboardMeTenant[]>([]);
+  const [canReviewRecoveryLinks, setCanReviewRecoveryLinks] = useState(false);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "http://127.0.0.1:3000";
+
+  useEffect(() => {
+    setAdminReviewPage(1);
+  }, [adminReviewStatusFilter, adminReviewTenantFilter, adminReviewSearch]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -600,6 +756,7 @@ export function App() {
   useEffect(() => {
     if (!accessToken?.trim()) {
       setServerTenants([]);
+      setCanReviewRecoveryLinks(false);
       return;
     }
     let cancelled = false;
@@ -609,17 +766,24 @@ export function App() {
         const body = (await readResponseJson(response)) as {
           ok?: boolean;
           authMode?: string;
-          tenants?: Array<{ id: string; name: string; role: string }>;
+          tenants?: DashboardMeTenant[];
+          operationalAccess?: {
+            canReviewRecoveryLinks?: boolean;
+          };
         } | null;
         if (cancelled || !response.ok || !body?.ok || !Array.isArray(body.tenants)) return;
         setServerTenants(body.tenants);
+        setCanReviewRecoveryLinks(Boolean(body.operationalAccess?.canReviewRecoveryLinks));
         if (body.authMode === "bearer" && body.tenants.length === 1) {
           const id = body.tenants[0].id;
           setSubmittedTenantId(id);
           setTenantId(id);
         }
       } catch {
-        if (!cancelled) setServerTenants([]);
+        if (!cancelled) {
+          setServerTenants([]);
+          setCanReviewRecoveryLinks(false);
+        }
       }
     })();
     return () => {
@@ -1856,6 +2020,256 @@ export function App() {
     }
   }, [targetTenantId, accessToken, baseUrl, dashboardAuthGate]);
 
+  const loadRecoveryLinks = useCallback(async () => {
+    if (!targetTenantId) return;
+    if (dashboardAuthGate && !accessToken?.trim()) return;
+    setRecoveryLinksLoading(true);
+    try {
+      const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/recovery-links`, accessToken);
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        items?: DashboardRecoveryLink[];
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.ok || !Array.isArray(payload.items)) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      setRecoveryLinksList(payload.items);
+    } catch (error) {
+      pushToast(`Falha ao carregar links de recuperação: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+      setRecoveryLinksList([]);
+    } finally {
+      setRecoveryLinksLoading(false);
+    }
+  }, [targetTenantId, accessToken, baseUrl, dashboardAuthGate]);
+
+  const loadAdminRecoveryLinks = useCallback(async () => {
+    if (!canReviewRecoveryLinks) {
+      setAdminRecoveryLinksList([]);
+      setAdminRecoveryLinksSummary(emptyRecoveryLinksQueueSummary());
+      setAdminRecoveryLinksPagination(emptyRecoveryLinksQueuePagination());
+      return;
+    }
+    setAdminRecoveryLinksLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (adminReviewStatusFilter !== "all") query.set("status", adminReviewStatusFilter);
+      const tenantFilter = adminReviewTenantFilter.trim();
+      if (tenantFilter) query.set("tenantId", tenantFilter);
+      const search = adminReviewSearch.trim();
+      if (search) query.set("q", search);
+      query.set("page", String(adminReviewPage));
+      query.set("pageSize", String(adminRecoveryLinksPagination.pageSize));
+      const response = await dashboardFetch(`${baseUrl}/conversion/recovery-links?${query.toString()}`, accessToken);
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        items?: DashboardRecoveryLink[];
+        summary?: RecoveryLinksQueueSummary;
+        pagination?: RecoveryLinksQueuePagination;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.ok || !Array.isArray(payload.items)) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      setAdminRecoveryLinksList(payload.items);
+      setAdminRecoveryLinksSummary(payload.summary ?? emptyRecoveryLinksQueueSummary());
+      setAdminRecoveryLinksPagination(payload.pagination ?? emptyRecoveryLinksQueuePagination());
+    } catch (error) {
+      pushToast(`Falha ao carregar fila de aprovação: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+      setAdminRecoveryLinksList([]);
+      setAdminRecoveryLinksSummary(emptyRecoveryLinksQueueSummary());
+      setAdminRecoveryLinksPagination(emptyRecoveryLinksQueuePagination());
+    } finally {
+      setAdminRecoveryLinksLoading(false);
+    }
+  }, [
+    accessToken,
+    adminRecoveryLinksPagination.pageSize,
+    adminReviewPage,
+    adminReviewSearch,
+    adminReviewStatusFilter,
+    adminReviewTenantFilter,
+    baseUrl,
+    canReviewRecoveryLinks,
+  ]);
+
+  const createRecoveryLink = async () => {
+    if (!targetTenantId) {
+      pushToast("Selecione uma conta válida.");
+      return;
+    }
+    if (dashboardAuthGate && !accessToken?.trim()) {
+      pushToast("Faça login para continuar.");
+      return;
+    }
+    if (settingsMutationsDisabled) {
+      pushToast("Seu usuário tem permissão somente leitura para esta conta.");
+      return;
+    }
+    if (!newRecoveryLinkDraft.label.trim() || !newRecoveryLinkDraft.url.trim()) {
+      pushToast("Preencha nome e URL do link.");
+      return;
+    }
+
+    const priorityNum = Number.parseInt(newRecoveryLinkDraft.priority, 10);
+    if (!Number.isFinite(priorityNum) || priorityNum < 0) {
+      pushToast("Prioridade inválida.");
+      return;
+    }
+
+    setRecoveryLinkCreating(true);
+    try {
+      const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/recovery-links`, accessToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newRecoveryLinkDraft.label.trim(),
+          url: newRecoveryLinkDraft.url.trim(),
+          platform: newRecoveryLinkDraft.platform.trim() || null,
+          triggerEventType: newRecoveryLinkDraft.triggerEventType.trim() || null,
+          productName: newRecoveryLinkDraft.productName.trim() || null,
+          active: newRecoveryLinkDraft.active,
+          priority: priorityNum,
+          submittedBy: newRecoveryLinkDraft.submittedBy.trim() || null,
+        }),
+      });
+      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      pushToast("Link enviado para revisão.");
+      setNewRecoveryLinkDraft(emptyRecoveryLinkDraft());
+      await loadRecoveryLinks();
+    } catch (error) {
+      pushToast(`Falha ao criar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+    } finally {
+      setRecoveryLinkCreating(false);
+    }
+  };
+
+  const saveRecoveryLink = async (linkId: string) => {
+    if (!targetTenantId) {
+      pushToast("Selecione uma conta válida.");
+      return;
+    }
+    if (dashboardAuthGate && !accessToken?.trim()) {
+      pushToast("Faça login para continuar.");
+      return;
+    }
+    if (settingsMutationsDisabled) {
+      pushToast("Seu usuário tem permissão somente leitura para esta conta.");
+      return;
+    }
+
+    const draft = recoveryLinkDrafts[linkId];
+    if (!draft) return;
+    if (!draft.label.trim() || !draft.url.trim()) {
+      pushToast("Preencha nome e URL antes de salvar.");
+      return;
+    }
+    const priorityNum = Number.parseInt(draft.priority, 10);
+    if (!Number.isFinite(priorityNum) || priorityNum < 0) {
+      pushToast("Prioridade inválida.");
+      return;
+    }
+
+    setRecoveryLinkSavingId(linkId);
+    try {
+      const response = await dashboardFetch(
+        `${baseUrl}/admin/tenants/${targetTenantId}/recovery-links/${linkId}`,
+        accessToken,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: draft.label.trim(),
+            url: draft.url.trim(),
+            platform: draft.platform.trim() || null,
+            triggerEventType: draft.triggerEventType.trim() || null,
+            productName: draft.productName.trim() || null,
+            active: draft.active,
+            priority: priorityNum,
+            submittedBy: draft.submittedBy.trim() || null,
+          }),
+        },
+      );
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        error?: string;
+        approvalReset?: boolean;
+      } | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      pushToast(payload?.approvalReset ? "Link alterado e reenviado para revisão." : "Link salvo.");
+      await loadRecoveryLinks();
+    } catch (error) {
+      pushToast(`Falha ao salvar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+    } finally {
+      setRecoveryLinkSavingId(null);
+    }
+  };
+
+  const approveRecoveryLink = async (linkId: string) => {
+    if (!canReviewRecoveryLinks || !accessToken?.trim()) {
+      pushToast("Seu usuário não tem permissão operacional para aprovar links.");
+      return;
+    }
+    const draft = recoveryLinkReviewDrafts[linkId] ?? emptyRecoveryLinkReviewDraft();
+    setRecoveryLinkReviewActionId(linkId);
+    try {
+      const response = await dashboardFetch(`${baseUrl}/conversion/recovery-links/${linkId}/approve`, accessToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvalNote: draft.approvalNote.trim() || undefined,
+        }),
+      });
+      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      pushToast("Link aprovado.");
+      await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+    } catch (error) {
+      pushToast(`Falha ao aprovar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+    } finally {
+      setRecoveryLinkReviewActionId(null);
+    }
+  };
+
+  const rejectRecoveryLink = async (linkId: string) => {
+    if (!canReviewRecoveryLinks || !accessToken?.trim()) {
+      pushToast("Seu usuário não tem permissão operacional para rejeitar links.");
+      return;
+    }
+    const draft = recoveryLinkReviewDrafts[linkId] ?? emptyRecoveryLinkReviewDraft();
+    if (!draft.approvalNote.trim()) {
+      pushToast("Escreva o motivo da rejeição.");
+      return;
+    }
+    setRecoveryLinkReviewActionId(linkId);
+    try {
+      const response = await dashboardFetch(`${baseUrl}/conversion/recovery-links/${linkId}/reject`, accessToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvalNote: draft.approvalNote.trim(),
+        }),
+      });
+      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      pushToast("Link rejeitado.");
+      await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+    } catch (error) {
+      pushToast(`Falha ao rejeitar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+    } finally {
+      setRecoveryLinkReviewActionId(null);
+    }
+  };
+
   const saveMessageTemplate = async () => {
     if (!targetTenantId) {
       pushToast("Selecione uma conta válida.");
@@ -2061,7 +2475,25 @@ export function App() {
     if (activeMenu !== "messages") return;
     if (!targetTenantId.trim()) return;
     void loadMessageTemplates();
-  }, [activeMenu, targetTenantId, loadMessageTemplates]);
+    void loadRecoveryLinks();
+  }, [activeMenu, targetTenantId, loadMessageTemplates, loadRecoveryLinks]);
+
+  useEffect(() => {
+    if (activeMenu !== "operations") return;
+    if (!canReviewRecoveryLinks) {
+      setAdminRecoveryLinksList([]);
+      setAdminRecoveryLinksSummary(emptyRecoveryLinksQueueSummary());
+      setAdminRecoveryLinksPagination(emptyRecoveryLinksQueuePagination());
+      return;
+    }
+    void loadAdminRecoveryLinks();
+  }, [activeMenu, canReviewRecoveryLinks, loadAdminRecoveryLinks]);
+
+  useEffect(() => {
+    if (activeMenu === "operations" && !canReviewRecoveryLinks) {
+      setActiveMenu("dashboard");
+    }
+  }, [activeMenu, canReviewRecoveryLinks]);
 
   useEffect(() => {
     if (!messageEditorTemplateId) {
@@ -2078,6 +2510,25 @@ export function App() {
       ),
     );
   }, [messageEditorTemplateId, messageVariantsList]);
+
+  useEffect(() => {
+    setRecoveryLinkDrafts(
+      Object.fromEntries(recoveryLinksList.map((item) => [item.id, recoveryLinkToDraft(item)])),
+    );
+  }, [recoveryLinksList]);
+
+  useEffect(() => {
+    setRecoveryLinkReviewDrafts(
+      Object.fromEntries(
+        adminRecoveryLinksList.map((item) => [
+          item.id,
+          {
+            approvalNote: item.approvalNote ?? "",
+          },
+        ]),
+      ),
+    );
+  }, [adminRecoveryLinksList]);
 
   const templateIdsUsedByWhatsapp = useMemo(
     () => new Set(whatsappFlows.map((f) => f.messageTemplateId)),
@@ -2100,6 +2551,16 @@ export function App() {
     }
     return "Adicionar mensagem para…";
   }, [newWhatsappTrigger, triggersAvailableToAdd]);
+
+  const recoveryTriggerLabelMap = useMemo(
+    () => Object.fromEntries(triggerCatalog.map((entry) => [entry.value, entry.label])),
+    [triggerCatalog],
+  );
+
+  const pendingRecoveryLinksCount = useMemo(
+    () => recoveryLinksList.filter((item) => item.approvalStatus === "pending_review").length,
+    [recoveryLinksList],
+  );
 
   const { messagesSceneSelectionKey, messagesSceneDropdownLabel } = useMemo(() => {
     let key = "";
@@ -2171,6 +2632,7 @@ export function App() {
   const isAttemptsMenu = activeMenu === "attempts";
   const isIntegrationsMenu = activeMenu === "integrations";
   const isMessagesMenu = activeMenu === "messages";
+  const isOperationsMenu = activeMenu === "operations";
   const isSupportMenu = activeMenu === "support";
   const isAccountMenu = activeMenu === "account";
   const needsOverviewData = isDashboardMenu || isAttemptsMenu;
@@ -2189,6 +2651,9 @@ export function App() {
     { key: "attempts" as const, label: "Tentativas de recuperação", icon: "receipt_long" },
     { key: "integrations" as const, label: "Integrações", icon: "credit_card" },
     { key: "messages" as const, label: "Mensagens", icon: "chat" },
+    ...(canReviewRecoveryLinks
+      ? ([{ key: "operations" as const, label: "Operação", icon: "verified_user" }] as const)
+      : []),
     { key: "account" as const, label: "Conta", icon: "account_circle" },
     { key: "settings" as const, label: "Configurações", icon: "account_balance_wallet" },
   ];
@@ -4479,6 +4944,579 @@ export function App() {
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </article>
+              </aside>
+            </div>
+
+            <div className="account-bento settings-account-bento recovery-links-bento" style={{ marginTop: 16 }}>
+              <div className="account-bento-main">
+                <article className="account-card">
+                  <div className="account-card-head">
+                    <span className="material-symbols-outlined account-card-icon" aria-hidden="true">
+                      link
+                    </span>
+                    <h2 className="account-card-title">Links de recuperação</h2>
+                  </div>
+                  <p className="inline-help subtle">
+                    O cliente cadastra os links aqui. Eles entram em revisão e só passam a ser usados quando forem aprovados pela operação.
+                  </p>
+                  <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="btn btn-tertiary"
+                      onClick={() => void loadRecoveryLinks()}
+                      disabled={recoveryLinksLoading}
+                    >
+                      {recoveryLinksLoading ? "Carregando..." : "Recarregar links"}
+                    </button>
+                  </div>
+
+                  <div className="recovery-link-create-grid">
+                    <label className="account-field">
+                      <span className="account-label">Nome interno</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.label}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, label: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Ex.: Checkout recovery cartão"
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Plataforma</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.platform}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, platform: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Hotmart, Kiwify, Hubla..."
+                      />
+                    </label>
+                    <label className="account-field account-field-span2">
+                      <span className="account-label">URL do link</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.url}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, url: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Gatilho</span>
+                      <select
+                        className="account-input"
+                        value={newRecoveryLinkDraft.triggerEventType}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({
+                            ...current,
+                            triggerEventType: event.target.value,
+                          }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                      >
+                        <option value="">Todos os gatilhos de recuperação</option>
+                        {triggerCatalog.map((entry) => (
+                          <option key={entry.value} value={entry.value}>
+                            {entry.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Produto/oferta</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.productName}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, productName: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Prioridade</span>
+                      <input
+                        className="account-input"
+                        type="number"
+                        min={0}
+                        value={newRecoveryLinkDraft.priority}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, priority: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Responsável</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.submittedBy}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, submittedBy: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Nome da pessoa que enviou"
+                      />
+                    </label>
+                    <label className="account-field account-field--checkbox">
+                      <span className="account-label">Ativar após aprovação</span>
+                      <input
+                        type="checkbox"
+                        checked={newRecoveryLinkDraft.active}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, active: event.target.checked }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void createRecoveryLink()}
+                      disabled={recoveryLinkCreating || settingsMutationsDisabled}
+                    >
+                      {recoveryLinkCreating ? "Enviando..." : "Enviar link para revisão"}
+                    </button>
+                  </div>
+
+                  <div className="recovery-links-list">
+                    {recoveryLinksList.length === 0 ? (
+                      <div className="recovery-link-empty">
+                        Nenhum link cadastrado ainda. Cadastre o primeiro acima para iniciar o fluxo de aprovação.
+                      </div>
+                    ) : (
+                      recoveryLinksList.map((item) => {
+                        const draft = recoveryLinkDrafts[item.id];
+                        if (!draft) return null;
+                        return (
+                          <section key={item.id} className="recovery-link-item">
+                            <div className="recovery-link-item-head">
+                              <div>
+                                <strong>{item.label}</strong>
+                                <p className="inline-help subtle">
+                                  Atualizado em {formatDateTime(item.updatedAt)}
+                                  {item.platform ? ` • ${item.platform}` : ""}
+                                </p>
+                              </div>
+                              <span className={`pill pill-${recoveryLinkStatusTone(item.approvalStatus)}`}>
+                                {recoveryLinkStatusLabel(item.approvalStatus)}
+                              </span>
+                            </div>
+                            <div className="recovery-link-edit-grid">
+                              <label className="account-field">
+                                <span className="account-label">Nome interno</span>
+                                <input
+                                  className="account-input"
+                                  value={draft.label}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, label: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field">
+                                <span className="account-label">Plataforma</span>
+                                <input
+                                  className="account-input"
+                                  value={draft.platform}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, platform: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field account-field-span2">
+                                <span className="account-label">URL do link</span>
+                                <input
+                                  className="account-input"
+                                  value={draft.url}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, url: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field">
+                                <span className="account-label">Gatilho</span>
+                                <select
+                                  className="account-input"
+                                  value={draft.triggerEventType}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, triggerEventType: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                >
+                                  <option value="">Todos os gatilhos de recuperação</option>
+                                  {triggerCatalog.map((entry) => (
+                                    <option key={entry.value} value={entry.value}>
+                                      {entry.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="account-field">
+                                <span className="account-label">Produto/oferta</span>
+                                <input
+                                  className="account-input"
+                                  value={draft.productName}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, productName: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field">
+                                <span className="account-label">Prioridade</span>
+                                <input
+                                  className="account-input"
+                                  type="number"
+                                  min={0}
+                                  value={draft.priority}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, priority: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field">
+                                <span className="account-label">Responsável</span>
+                                <input
+                                  className="account-input"
+                                  value={draft.submittedBy}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, submittedBy: event.target.value },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                              <label className="account-field account-field--checkbox">
+                                <span className="account-label">Ativo</span>
+                                <input
+                                  type="checkbox"
+                                  checked={draft.active}
+                                  onChange={(event) =>
+                                    setRecoveryLinkDrafts((current) => ({
+                                      ...current,
+                                      [item.id]: { ...draft, active: event.target.checked },
+                                    }))
+                                  }
+                                  disabled={settingsMutationsDisabled}
+                                />
+                              </label>
+                            </div>
+                            <div className="recovery-link-meta">
+                              <span>
+                                Escopo:{" "}
+                                {draft.triggerEventType
+                                  ? recoveryTriggerLabelMap[draft.triggerEventType] ?? draft.triggerEventType
+                                  : "todos os gatilhos"}
+                              </span>
+                              {item.reviewedAt ? (
+                                <span>
+                                  Revisado em {formatDateTime(item.reviewedAt)}
+                                  {item.reviewedBy ? ` por ${item.reviewedBy}` : ""}
+                                </span>
+                              ) : null}
+                              {item.approvalNote ? <span>Observação: {item.approvalNote}</span> : null}
+                            </div>
+                            <div className="filter-actions settings-actions">
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => void saveRecoveryLink(item.id)}
+                                disabled={settingsMutationsDisabled || recoveryLinkSavingId === item.id}
+                              >
+                                {recoveryLinkSavingId === item.id ? "Salvando..." : "Salvar link"}
+                              </button>
+                            </div>
+                          </section>
+                        );
+                      })
+                    )}
+                  </div>
+                </article>
+              </div>
+              <aside className="account-bento-aside" aria-label="Resumo dos links">
+                <article className="account-card">
+                  <div className="account-card-head">
+                    <span className="material-symbols-outlined account-card-icon" aria-hidden="true">
+                      verified_user
+                    </span>
+                    <h2 className="account-card-title">Fluxo de aprovação</h2>
+                  </div>
+                  <p className="inline-help subtle">
+                    O cliente cadastra e acompanha o status aqui. A revisão operacional acontece no menu dedicado de operação, usando a sessão autenticada da equipe interna.
+                  </p>
+                  <div className="recovery-link-approval-stats">
+                    <div className="attempts-summary-card">
+                      <small>Pendentes</small>
+                      <strong>{pendingRecoveryLinksCount}</strong>
+                      <p>Aguardando validação da operação antes de entrar no disparo.</p>
+                    </div>
+                    <div className="attempts-summary-card">
+                      <small>Aprovados</small>
+                      <strong>{recoveryLinksList.filter((item) => item.approvalStatus === "approved").length}</strong>
+                      <p>Links já elegíveis para entrar na mensagem quando o evento ocorrer.</p>
+                    </div>
+                  </div>
+                </article>
+              </aside>
+            </div>
+          </section>
+        )}
+
+        {isOperationsMenu && (
+          <section className="integrations-page messages-page" aria-label="Operação e aprovação">
+            <header className="account-page-header">
+              <span className="account-page-badge">Operação</span>
+              <h1 className="account-page-title">Aprovação de links</h1>
+              <p className="account-page-lead">
+                Área interna para validar os links cadastrados pelos clientes antes de liberá-los para uso nos fluxos de recuperação.
+              </p>
+            </header>
+
+            <div className="account-bento settings-account-bento recovery-links-bento" style={{ marginTop: 16 }}>
+              <div className="account-bento-main">
+                <article className="account-card">
+                  <div className="account-card-head">
+                    <span className="material-symbols-outlined account-card-icon" aria-hidden="true">
+                      admin_panel_settings
+                    </span>
+                    <h2 className="account-card-title">Fila operacional</h2>
+                  </div>
+                  <p className="inline-help subtle">
+                    A revisão usa a sessão autenticada do painel. Só usuários com permissão operacional conseguem listar, aprovar e rejeitar links.
+                  </p>
+                  <div className="recovery-link-create-grid" style={{ marginTop: 12 }}>
+                    <label className="account-field">
+                      <span className="account-label">Status</span>
+                      <select
+                        className="account-input"
+                        value={adminReviewStatusFilter}
+                        onChange={(event) =>
+                          setAdminReviewStatusFilter(event.target.value as RecoveryLinkApprovalStatus | "all")
+                        }
+                      >
+                        <option value="all">Todos</option>
+                        <option value="pending_review">Pendentes</option>
+                        <option value="approved">Aprovados</option>
+                        <option value="rejected">Rejeitados</option>
+                      </select>
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Tenant</span>
+                      <input
+                        className="account-input"
+                        value={adminReviewTenantFilter}
+                        onChange={(event) => setAdminReviewTenantFilter(event.target.value)}
+                        placeholder="Filtrar por tenant"
+                      />
+                    </label>
+                    <label className="account-field account-field-span2">
+                      <span className="account-label">Busca</span>
+                      <input
+                        className="account-input"
+                        value={adminReviewSearch}
+                        onChange={(event) => setAdminReviewSearch(event.target.value)}
+                        placeholder="Buscar por nome, URL, produto ou plataforma"
+                      />
+                    </label>
+                  </div>
+                  <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="btn btn-tertiary"
+                      onClick={() => void loadAdminRecoveryLinks()}
+                      disabled={adminRecoveryLinksLoading}
+                    >
+                      {adminRecoveryLinksLoading ? "Carregando..." : "Atualizar fila"}
+                    </button>
+                  </div>
+                  {!canReviewRecoveryLinks ? (
+                    <p className="inline-help subtle">Seu usuário não tem permissão operacional para revisar links.</p>
+                  ) : adminRecoveryLinksList.length === 0 ? (
+                    <p className="inline-help subtle">Nenhum link encontrado para o filtro atual.</p>
+                  ) : (
+                    <div className="recovery-links-list">
+                      {adminRecoveryLinksList.map((item) => {
+                        const draft = recoveryLinkReviewDrafts[item.id] ?? emptyRecoveryLinkReviewDraft();
+                        return (
+                          <section key={item.id} className="recovery-link-item recovery-link-item--review">
+                            <div className="recovery-link-item-head">
+                              <div>
+                                <strong>{item.label}</strong>
+                                <p className="inline-help subtle">
+                                  {item.platform ? `${item.platform} • ` : ""}
+                                  {item.tenantName ? `${item.tenantName} • ` : ""}
+                                  Tenant {item.tenantId.slice(0, 8)}… • enviado em {formatDateTime(item.createdAt)}
+                                </p>
+                              </div>
+                              <span className={`pill pill-${recoveryLinkStatusTone(item.approvalStatus)}`}>
+                                {recoveryLinkStatusLabel(item.approvalStatus)}
+                              </span>
+                            </div>
+                            <div className="recovery-link-meta">
+                              <span>
+                                Gatilho:{" "}
+                                {item.triggerEventType
+                                  ? recoveryTriggerLabelMap[item.triggerEventType] ?? item.triggerEventType
+                                  : "todos"}
+                              </span>
+                              <span>Produto: {item.productName || "não informado"}</span>
+                              <span>Prioridade: {item.priority}</span>
+                              <span>{item.active ? "Ativo" : "Inativo"}</span>
+                              <span>Enviado por: {item.submittedBy || "não informado"}</span>
+                            </div>
+                            <label className="account-field account-field-span2" style={{ marginTop: 12 }}>
+                              <span className="account-label">URL</span>
+                              <input className="account-input" value={item.url} readOnly />
+                            </label>
+                            <label className="account-field account-field-span2" style={{ marginTop: 12 }}>
+                              <span className="account-label">Observação da revisão</span>
+                              <textarea
+                                className="account-input"
+                                rows={4}
+                                value={draft.approvalNote}
+                                onChange={(event) =>
+                                  setRecoveryLinkReviewDrafts((current) => ({
+                                    ...current,
+                                    [item.id]: { ...draft, approvalNote: event.target.value },
+                                  }))
+                                }
+                                placeholder="Motivo da aprovação ou rejeição"
+                              />
+                            </label>
+                            <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
+                              {item.approvalStatus === "pending_review" ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => void approveRecoveryLink(item.id)}
+                                    disabled={recoveryLinkReviewActionId === item.id}
+                                  >
+                                    {recoveryLinkReviewActionId === item.id ? "Processando..." : "Aprovar"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-tertiary"
+                                    onClick={() => void rejectRecoveryLink(item.id)}
+                                    disabled={recoveryLinkReviewActionId === item.id}
+                                  >
+                                    {recoveryLinkReviewActionId === item.id ? "Processando..." : "Rejeitar"}
+                                  </button>
+                                </>
+                              ) : (
+                                <p className="inline-help subtle">
+                                  {item.reviewedBy ? `Revisado por ${item.reviewedBy}` : "Revisão registrada"}
+                                  {item.reviewedAt ? ` em ${formatDateTime(item.reviewedAt)}` : ""}
+                                  {item.approvalNote ? ` • ${item.approvalNote}` : ""}
+                                </p>
+                              )}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {canReviewRecoveryLinks && adminRecoveryLinksPagination.totalPages > 1 ? (
+                    <div className="filter-actions settings-actions" style={{ marginTop: 16 }}>
+                      <button
+                        type="button"
+                        className="btn btn-tertiary"
+                        onClick={() => setAdminReviewPage((current) => Math.max(1, current - 1))}
+                        disabled={adminRecoveryLinksLoading || adminRecoveryLinksPagination.page <= 1}
+                      >
+                        Página anterior
+                      </button>
+                      <span className="inline-help subtle">
+                        Página {adminRecoveryLinksPagination.page} de {adminRecoveryLinksPagination.totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-tertiary"
+                        onClick={() =>
+                          setAdminReviewPage((current) =>
+                            Math.min(adminRecoveryLinksPagination.totalPages, current + 1),
+                          )
+                        }
+                        disabled={
+                          adminRecoveryLinksLoading ||
+                          adminRecoveryLinksPagination.page >= adminRecoveryLinksPagination.totalPages
+                        }
+                      >
+                        Próxima página
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              </div>
+
+              <aside className="account-bento-aside" aria-label="Resumo operacional">
+                <article className="account-card">
+                  <div className="account-card-head">
+                    <span className="material-symbols-outlined account-card-icon" aria-hidden="true">
+                      insights
+                    </span>
+                    <h2 className="account-card-title">Resumo da fila</h2>
+                  </div>
+                  <div className="recovery-link-approval-stats">
+                    <div className="attempts-summary-card">
+                      <small>Pendentes</small>
+                      <strong>{adminRecoveryLinksSummary.pendingReview}</strong>
+                      <p>Links aguardando revisão operacional antes de entrar no disparo.</p>
+                    </div>
+                    <div className="attempts-summary-card">
+                      <small>Aprovados</small>
+                      <strong>{adminRecoveryLinksSummary.approved}</strong>
+                      <p>
+                        {adminRecoveryLinksSummary.rejected} rejeitados • {adminRecoveryLinksSummary.all} no escopo atual
+                      </p>
+                    </div>
+                    <div className="attempts-summary-card">
+                      <small>Filtro ativo</small>
+                      <strong>{adminReviewStatusFilter === "all" ? "Todos" : recoveryLinkStatusLabel(adminReviewStatusFilter)}</strong>
+                      <p>
+                        {adminReviewTenantFilter.trim()
+                          ? `Tenant filtrado: ${adminReviewTenantFilter.trim()}`
+                          : adminReviewSearch.trim()
+                            ? `Busca: ${adminReviewSearch.trim()}`
+                            : "Fila global sem recorte manual"}
+                      </p>
                     </div>
                   </div>
                 </article>
