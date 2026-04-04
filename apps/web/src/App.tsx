@@ -4960,7 +4960,8 @@ export function App() {
                     <h2 className="account-card-title">Links de recuperação</h2>
                   </div>
                   <p className="inline-help subtle">
-                    O cliente cadastra os links aqui. Eles entram em revisão e só passam a ser usados quando forem aprovados pela operação.
+                    Cadastre aqui os links de recuperação que podem ser usados nas mensagens. Cada link passa por revisão antes
+                    de ficar disponível no fluxo.
                   </p>
                   <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
                     <button
@@ -4983,7 +4984,7 @@ export function App() {
                           setNewRecoveryLinkDraft((current) => ({ ...current, label: event.target.value }))
                         }
                         disabled={settingsMutationsDisabled}
-                        placeholder="Ex.: Checkout recovery cartão"
+                        placeholder="Ex.: Checkout de recuperacao no cartao"
                       />
                     </label>
                     <label className="account-field">
@@ -5065,7 +5066,7 @@ export function App() {
                           setNewRecoveryLinkDraft((current) => ({ ...current, submittedBy: event.target.value }))
                         }
                         disabled={settingsMutationsDisabled}
-                        placeholder="Nome da pessoa que enviou"
+                        placeholder="Seu nome ou responsavel pelo link"
                       />
                     </label>
                     <label className="account-field account-field--checkbox">
@@ -5095,7 +5096,7 @@ export function App() {
                   <div className="recovery-links-list">
                     {recoveryLinksList.length === 0 ? (
                       <div className="recovery-link-empty">
-                        Nenhum link cadastrado ainda. Cadastre o primeiro acima para iniciar o fluxo de aprovação.
+                        Nenhum link cadastrado ainda. Preencha os campos acima para enviar o primeiro link para revisao.
                       </div>
                     ) : (
                       recoveryLinksList.map((item) => {
@@ -5279,18 +5280,23 @@ export function App() {
                     <h2 className="account-card-title">Fluxo de aprovação</h2>
                   </div>
                   <p className="inline-help subtle">
-                    O cliente cadastra e acompanha o status aqui. A revisão operacional acontece no menu dedicado de operação, usando a sessão autenticada da equipe interna.
+                    Aqui voce acompanha o andamento das revisoes. A aprovacao final e feita pela equipe interna antes do link
+                    entrar em uso.
                   </p>
                   <div className="recovery-link-approval-stats">
                     <div className="attempts-summary-card">
-                      <small>Pendentes</small>
-                      <strong>{pendingRecoveryLinksCount}</strong>
-                      <p>Aguardando validação da operação antes de entrar no disparo.</p>
+                      <p className="attempts-summary-label">Pendentes</p>
+                      <p className="attempts-summary-value">{pendingRecoveryLinksCount}</p>
+                      <p className="attempts-summary-foot">Aguardando validacao da operacao antes de entrar no disparo.</p>
                     </div>
                     <div className="attempts-summary-card">
-                      <small>Aprovados</small>
-                      <strong>{recoveryLinksList.filter((item) => item.approvalStatus === "approved").length}</strong>
-                      <p>Links já elegíveis para entrar na mensagem quando o evento ocorrer.</p>
+                      <p className="attempts-summary-label">Aprovados</p>
+                      <p className="attempts-summary-value">
+                        {recoveryLinksList.filter((item) => item.approvalStatus === "approved").length}
+                      </p>
+                      <p className="attempts-summary-foot">
+                        Links liberados para entrar na mensagem quando o evento acontecer.
+                      </p>
                     </div>
                   </div>
                 </article>

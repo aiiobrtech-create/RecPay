@@ -1485,6 +1485,22 @@ select.page-size-select:focus {
   margin-top: 14px;
 }
 
+div.app-shell.sovereign-mode .recovery-link-item,
+div.app-shell.sovereign-mode .recovery-link-empty {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+}
+
+div.app-shell.sovereign-mode .recovery-link-item-head strong {
+  color: #0f172a !important;
+}
+
+div.app-shell.sovereign-mode .recovery-link-meta {
+  color: #64748b !important;
+}
+
 @media (max-width: 640px) {
   .messages-page .integration-toolbar.integration-toolbar--messages,
   .messages-page .integration-header-actions.integration-header-actions--messages {
@@ -7422,6 +7438,16 @@ div.app-shell.sovereign-mode .account-input::placeholder {
   color: #94a3b8 !important;
 }
 
+div.app-shell.sovereign-mode .account-field--checkbox {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #1b1b1b !important;
+}
+
+div.app-shell.sovereign-mode .account-field--checkbox .account-label {
+  color: #475569 !important;
+}
+
 div.app-shell.sovereign-mode .account-readonly {
   background: #f8fafc !important;
   border-color: #e2e8f0 !important;
@@ -7747,4 +7773,3 @@ div.app-shell.sovereign-mode.theme-dark .status-list li strong,
 div.app-shell.sovereign-mode.theme-dark .trend-card strong {
   color: #1b1b1b !important;
 }
-
