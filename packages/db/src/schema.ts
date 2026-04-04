@@ -74,6 +74,12 @@ export const messageApprovalStatusEnum = pgEnum("message_approval_status", [
   "rejected",
 ]);
 
+export const recoveryLinkApprovalStatusEnum = pgEnum("recovery_link_approval_status", [
+  "pending_review",
+  "approved",
+  "rejected",
+]);
+
 export const tenants = pgTable(
   "tenants",
   {
@@ -264,6 +270,29 @@ export const conversionAttributions = pgTable(
     unique("conversion_attributions_conversion_event_unique").on(t.conversionEventId),
   ],
 );
+
+export const recoveryLinks = pgTable("recovery_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  url: text("url").notNull(),
+  platform: text("platform"),
+  triggerEventType: text("trigger_event_type"),
+  productName: text("product_name"),
+  active: boolean("active").notNull().default(true),
+  priority: integer("priority").notNull().default(0),
+  approvalStatus: recoveryLinkApprovalStatusEnum("approval_status")
+    .notNull()
+    .default("pending_review"),
+  approvalNote: text("approval_note"),
+  submittedBy: text("submitted_by"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});
 
 export const billingStatements = pgTable(
   "billing_statements",

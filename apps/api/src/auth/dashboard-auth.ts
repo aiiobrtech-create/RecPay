@@ -13,7 +13,14 @@ import { getSupabaseAdmin } from "../lib/supabase-admin.js";
  */
 export function isDashboardAuthEnforced(): boolean {
   const v = process.env.DASHBOARD_AUTH_REQUIRED?.trim().toLowerCase();
-  return v === "true" || v === "1";
+  if (v === "false" || v === "0") return false;
+  return true;
+}
+
+export function hasTenantManagementWriteAccess(
+  role: "owner" | "admin" | "member" | "readonly",
+): boolean {
+  return role === "owner" || role === "admin";
 }
 
 /** Token `ADMIN_API_TOKEN` (scripts / operação interna). Não expor ao cliente final. */
@@ -80,6 +87,11 @@ export async function assertTenantManagementAccess(
   }
 
   if (m.role === "readonly" && !options?.allowReadonly) {
+    await reply.status(403).send({ ok: false, error: "insufficient_role" });
+    return false;
+  }
+
+  if (!options?.allowReadonly && !hasTenantManagementWriteAccess(m.role)) {
     await reply.status(403).send({ ok: false, error: "insufficient_role" });
     return false;
   }

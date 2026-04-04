@@ -13,6 +13,7 @@ import {
   messageTemplates,
   messageVariants,
   recoveryAttempts,
+  recoveryLinks,
   recoveryFlows,
   type DbClient,
 } from "@re/db";
@@ -146,6 +147,7 @@ export async function resolveMessagingConfig(
 export function buildMessageContext(
   canonical: Record<string, unknown>,
   trigger: string,
+  options?: { checkoutLinkOverride?: string | null },
 ): MessageCompositionContext {
   const safeTrigger: ConversionTriggerEventType = isConversionTriggerEventType(trigger)
     ? trigger
@@ -160,7 +162,9 @@ export function buildMessageContext(
     maximumFractionDigits: 2,
   }).format(amountCents / 100);
   const checkoutLink =
-    pickString(order, ["checkoutUrl", "checkout_url", "paymentLink", "payment_link"]) ?? null;
+    options?.checkoutLinkOverride ??
+    pickString(order, ["checkoutUrl", "checkout_url", "paymentLink", "payment_link"]) ??
+    null;
   const orderRef =
     pickString(order, ["externalId", "external_id", "orderId", "order_id"]) ?? null;
 
@@ -171,6 +175,90 @@ export function buildMessageContext(
     currency,
     checkoutLink,
     orderRef,
+  };
+}
+
+export type ResolvedRecoveryLink = {
+  id: string | null;
+  url: string | null;
+  source: "event" | "manual" | "none";
+  platform: string | null;
+  triggerEventType: string | null;
+  productName: string | null;
+};
+
+function normalizeText(value: string | null | undefined): string {
+  return value?.trim().toLocaleLowerCase("pt-BR") ?? "";
+}
+
+export async function resolveRecoveryCheckoutLink(
+  db: DbClient,
+  tenantId: string,
+  canonical: Record<string, unknown>,
+  trigger: string,
+): Promise<ResolvedRecoveryLink> {
+  const order = asObject(canonical.order);
+  const eventLink =
+    pickString(order, ["checkoutUrl", "checkout_url", "paymentLink", "payment_link"]) ?? null;
+  if (eventLink) {
+    return {
+      id: null,
+      url: eventLink,
+      source: "event",
+      platform: null,
+      triggerEventType: trigger,
+      productName: pickString(order, ["productName", "product_name", "name"]) ?? null,
+    };
+  }
+
+  const rows = await db
+    .select()
+    .from(recoveryLinks)
+    .where(eq(recoveryLinks.tenantId, tenantId));
+
+  const productName = pickString(order, ["productName", "product_name", "name"]) ?? null;
+  const wantedProduct = normalizeText(productName);
+
+  const matched = rows
+    .filter((row) => row.active && row.approvalStatus === "approved")
+    .filter((row) => !row.triggerEventType || row.triggerEventType === trigger)
+    .filter((row) => {
+      const configured = normalizeText(row.productName);
+      if (!configured) return true;
+      if (!wantedProduct) return false;
+      return configured === wantedProduct;
+    })
+    .sort((a, b) => {
+      const aTriggerScore = a.triggerEventType === trigger ? 1 : 0;
+      const bTriggerScore = b.triggerEventType === trigger ? 1 : 0;
+      if (aTriggerScore !== bTriggerScore) return bTriggerScore - aTriggerScore;
+
+      const aProductScore = normalizeText(a.productName) === wantedProduct && wantedProduct ? 1 : 0;
+      const bProductScore = normalizeText(b.productName) === wantedProduct && wantedProduct ? 1 : 0;
+      if (aProductScore !== bProductScore) return bProductScore - aProductScore;
+
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    })[0];
+
+  if (!matched) {
+    return {
+      id: null,
+      url: null,
+      source: "none",
+      platform: null,
+      triggerEventType: null,
+      productName,
+    };
+  }
+
+  return {
+    id: matched.id,
+    url: matched.url,
+    source: "manual",
+    platform: matched.platform ?? null,
+    triggerEventType: matched.triggerEventType ?? null,
+    productName: matched.productName ?? null,
   };
 }
 

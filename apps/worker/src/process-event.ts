@@ -8,6 +8,7 @@ import {
   loadMessageApprovalForAttempt,
   maybeRecordConversionAttribution,
   readStoredMessaging,
+  resolveRecoveryCheckoutLink,
   resolveMessagingConfig,
   type StoredMessagingMeta,
 } from "./recovery-messaging.js";
@@ -267,6 +268,15 @@ type MessagingPayload = {
   complianceFlags: string[];
 };
 
+type RecoveryLinkMeta = {
+  id: string | null;
+  url: string | null;
+  source: "event" | "manual" | "none";
+  platform: string | null;
+  triggerEventType: string | null;
+  productName: string | null;
+};
+
 function buildMessagingPayload(
   stored: StoredMessagingMeta | null,
   fresh: MessagingPayload,
@@ -303,7 +313,13 @@ async function maybeCreateRecoveryAttempt(
 
   const generator = new TemplateContentGenerator();
   const resolved = await resolveMessagingConfig(db, row.tenantId, eventType);
-  const composed = generator.compose(resolved.templateBody, buildMessageContext(canonical, eventType));
+  const recoveryLink = await resolveRecoveryCheckoutLink(db, row.tenantId, canonical, eventType);
+  const composed = generator.compose(
+    resolved.templateBody,
+    buildMessageContext(canonical, eventType, {
+      checkoutLinkOverride: recoveryLink.url,
+    }),
+  );
   const messagingPayload = buildMessagingPayload(readStoredMessaging(existingForEvent?.meta), {
     flowId: resolved.flowId,
     templateId: resolved.templateId,
@@ -374,6 +390,7 @@ async function maybeCreateRecoveryAttempt(
       meta: {
         provider: row.provider,
         eventType,
+        recoveryLink,
         messaging: messagingPayload,
       },
     })
@@ -399,6 +416,7 @@ async function maybeCreateRecoveryAttempt(
             ...prevMeta,
             provider: row.provider,
             eventType,
+            recoveryLink,
             messaging: messagingPayload,
           },
         })
@@ -413,10 +431,15 @@ async function maybeCreateRecoveryAttempt(
     pickString(customer, ["phone_e164"]);
   const contactKey = phoneToContactKey(phone);
 
-  const buildMeta = (ck: string | null | undefined, extra: Record<string, unknown> = {}) => ({
+  const buildMeta = (
+    ck: string | null | undefined,
+    recoveryLinkMeta: RecoveryLinkMeta,
+    extra: Record<string, unknown> = {},
+  ) => ({
     provider: row.provider,
     eventType,
     contactKey: ck ?? null,
+    recoveryLink: recoveryLinkMeta,
     messaging: messagingPayload,
     ...extra,
   });
@@ -428,7 +451,7 @@ async function maybeCreateRecoveryAttempt(
         status: "failed",
         reason: "missing_customer_phone",
         executedAt: new Date(),
-        meta: buildMeta(contactKey, {
+        meta: buildMeta(contactKey, recoveryLink, {
           delivery: {
             provider: "evolution",
             ok: false,
@@ -447,7 +470,7 @@ async function maybeCreateRecoveryAttempt(
         status: "failed",
         reason: "invalid_customer_phone",
         executedAt: new Date(),
-        meta: buildMeta(null, {
+        meta: buildMeta(null, recoveryLink, {
           delivery: {
             provider: "evolution",
             ok: false,
@@ -462,7 +485,7 @@ async function maybeCreateRecoveryAttempt(
   await db
     .update(recoveryAttempts)
     .set({
-      meta: buildMeta(contactKey),
+      meta: buildMeta(contactKey, recoveryLink),
     })
     .where(eq(recoveryAttempts.id, attemptId));
 
@@ -474,7 +497,7 @@ async function maybeCreateRecoveryAttempt(
         .update(recoveryAttempts)
         .set({
           reason: "awaiting_message_approval",
-          meta: buildMeta(contactKey),
+          meta: buildMeta(contactKey, recoveryLink),
         })
         .where(eq(recoveryAttempts.id, attemptId));
       return;
@@ -483,7 +506,7 @@ async function maybeCreateRecoveryAttempt(
       await db
         .update(recoveryAttempts)
         .set({
-          meta: buildMeta(contactKey),
+          meta: buildMeta(contactKey, recoveryLink),
         })
         .where(eq(recoveryAttempts.id, attemptId));
       return;
@@ -495,7 +518,7 @@ async function maybeCreateRecoveryAttempt(
           status: "failed",
           reason: "message_rejected_by_reviewer",
           executedAt: new Date(),
-          meta: buildMeta(contactKey, {
+          meta: buildMeta(contactKey, recoveryLink, {
             review: {
               reviewerNote: approval.reviewerNote ?? null,
               resolvedBy: approval.resolvedBy ?? null,
@@ -538,7 +561,7 @@ async function maybeCreateRecoveryAttempt(
         status: "failed",
         reason: "contact_cooldown_active",
         executedAt: new Date(),
-        meta: buildMeta(contactKey, {
+        meta: buildMeta(contactKey, recoveryLink, {
           throttling: {
             reason: "cooldown",
             cooldownMinutes,
@@ -581,7 +604,7 @@ async function maybeCreateRecoveryAttempt(
         status: "failed",
         reason: "contact_daily_limit_exceeded",
         executedAt: new Date(),
-        meta: buildMeta(contactKey, {
+        meta: buildMeta(contactKey, recoveryLink, {
           throttling: {
             reason: "daily_limit",
             maxAttemptsPerDay,
@@ -605,7 +628,7 @@ async function maybeCreateRecoveryAttempt(
         status: "simulated_sent",
         reason: recoverySimulatedReasonCode(eventType),
         executedAt: new Date(),
-        meta: buildMeta(contactKey, {
+        meta: buildMeta(contactKey, recoveryLink, {
           delivery: {
             provider: "simulated",
             ok: true,
@@ -629,7 +652,7 @@ async function maybeCreateRecoveryAttempt(
       status: sendResult.ok ? "sent" : "failed",
       reason: sendResult.ok ? recoverySentOkReasonCode(eventType) : sendResult.errorCode ?? "send_error",
       executedAt: new Date(),
-      meta: buildMeta(contactKey, {
+      meta: buildMeta(contactKey, recoveryLink, {
         delivery: {
           provider: "evolution",
           ok: sendResult.ok,

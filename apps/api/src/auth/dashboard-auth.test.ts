@@ -1,6 +1,10 @@
 import type { FastifyRequest } from "fastify";
 import { describe, expect, it } from "vitest";
-import { resolveDashboardTenantId } from "./dashboard-auth.js";
+import {
+  hasTenantManagementWriteAccess,
+  isDashboardAuthEnforced,
+  resolveDashboardTenantId,
+} from "./dashboard-auth.js";
 
 describe("resolveDashboardTenantId", () => {
   it("uses effective tenant from auth when query omitted", () => {
@@ -30,5 +34,38 @@ describe("resolveDashboardTenantId", () => {
     const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const req = { dashboardEffectiveTenantId: id } as FastifyRequest;
     expect(resolveDashboardTenantId(req, id)).toEqual({ ok: true, tenantId: id });
+  });
+});
+
+describe("isDashboardAuthEnforced", () => {
+  it("defaults to true when env is unset", () => {
+    const prev = process.env.DASHBOARD_AUTH_REQUIRED;
+    delete process.env.DASHBOARD_AUTH_REQUIRED;
+    try {
+      expect(isDashboardAuthEnforced()).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.DASHBOARD_AUTH_REQUIRED;
+      else process.env.DASHBOARD_AUTH_REQUIRED = prev;
+    }
+  });
+
+  it("allows explicit legacy opt-out", () => {
+    const prev = process.env.DASHBOARD_AUTH_REQUIRED;
+    process.env.DASHBOARD_AUTH_REQUIRED = "false";
+    try {
+      expect(isDashboardAuthEnforced()).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.DASHBOARD_AUTH_REQUIRED;
+      else process.env.DASHBOARD_AUTH_REQUIRED = prev;
+    }
+  });
+});
+
+describe("hasTenantManagementWriteAccess", () => {
+  it("allows owner and admin only", () => {
+    expect(hasTenantManagementWriteAccess("owner")).toBe(true);
+    expect(hasTenantManagementWriteAccess("admin")).toBe(true);
+    expect(hasTenantManagementWriteAccess("member")).toBe(false);
+    expect(hasTenantManagementWriteAccess("readonly")).toBe(false);
   });
 });

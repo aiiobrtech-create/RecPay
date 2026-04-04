@@ -12,6 +12,7 @@ import {
 } from "./routes/stripe-billing-webhook.js";
 import { tenantBillingRoutes } from "./routes/tenant-billing.js";
 import { tenantLimitsRoutes } from "./routes/tenant-limits.js";
+import { tenantRecoveryLinksRoutes } from "./routes/tenant-recovery-links.js";
 import { tenantMessageTemplatesRoutes } from "./routes/tenant-message-templates.js";
 import { webhooksIngressRoutes } from "./routes/webhooks-ingress.js";
 
@@ -95,6 +96,7 @@ export async function buildApp() {
   await app.register(recoveryAttemptsRoutes);
   await app.register(tenantBillingRoutes);
   await app.register(tenantLimitsRoutes);
+  await app.register(tenantRecoveryLinksRoutes);
   await app.register(tenantMessageTemplatesRoutes);
   await app.register(conversionMessagingRoutes);
 

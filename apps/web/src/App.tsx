@@ -254,6 +254,8 @@ type ProviderConfig = {
   endpointUrl: string;
 };
 
+const REDACTED_PROVIDER_SECRET = "********";
+
 interface SavedView {
   id: string;
   name: string;
@@ -336,7 +338,15 @@ function emptyProviderConfig(endpointUrl = ""): ProviderConfig {
 
 function providerConfigHasRequiredFields(config: ProviderConfig | null | undefined): boolean {
   if (!config) return false;
-  return Boolean(config.apiKey.trim() && config.webhookToken.trim() && config.endpointUrl.trim());
+  const apiKey = config.apiKey.trim();
+  const webhookToken = config.webhookToken.trim();
+  return Boolean(
+    apiKey &&
+      webhookToken &&
+      config.endpointUrl.trim() &&
+      apiKey !== REDACTED_PROVIDER_SECRET &&
+      webhookToken !== REDACTED_PROVIDER_SECRET,
+  );
 }
 
 type DropdownOption<TValue extends string> = {
@@ -1563,7 +1573,8 @@ export function App() {
     return serverTenants.find((t) => t.id === targetTenantId)?.role ?? null;
   }, [serverTenants, targetTenantId]);
 
-  const settingsMutationsDisabled = currentTenantMembershipRole === "readonly";
+  const settingsMutationsDisabled =
+    currentTenantMembershipRole === "readonly" || currentTenantMembershipRole === "member";
 
   const loadTenantDashboardSettings = async () => {
     if (!targetTenantId) {
@@ -1673,9 +1684,15 @@ export function App() {
       pushToast("Seu usuário tem permissão somente leitura para esta conta.");
       return;
     }
-    const invalidEnabledProvider = providerItems.find(
-      (provider) => enabledProviders[provider.key] && !providerConfigHasRequiredFields(providerConfigs[provider.key]),
-    );
+    const invalidEnabledProvider = providerItems.find((provider) => {
+      if (!enabledProviders[provider.key]) return false;
+      const config = providerConfigs[provider.key];
+      if (!config) return true;
+      const hasEndpoint = Boolean(config.endpointUrl.trim());
+      const hasApiKey = Boolean(config.apiKey.trim());
+      const hasWebhookToken = Boolean(config.webhookToken.trim());
+      return !(hasEndpoint && hasApiKey && hasWebhookToken);
+    });
     if (invalidEnabledProvider) {
       pushToast(`Configure ${invalidEnabledProvider.label} antes de ativar o provedor.`);
       openProviderConfig(invalidEnabledProvider.key);

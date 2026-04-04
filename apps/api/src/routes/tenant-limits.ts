@@ -57,11 +57,43 @@ const bodySchema = z.object({
   providerConfigs: integrationConfigsSchema,
 });
 
+const REDACTED_SECRET = "********";
+
 function webhookBaseUrl(): string {
   const explicit = process.env.WEBHOOK_SEED_BASE_URL?.trim();
   if (explicit) return explicit.replace(/\/+$/, "");
   const port = process.env.API_PORT?.trim() || "3000";
   return `http://127.0.0.1:${port}`;
+}
+
+type SerializableProviderConfig = {
+  enabled: boolean;
+  apiKey: string | null;
+  webhookToken: string | null;
+  endpointUrl: string | null;
+};
+
+function serializeProviderConfigs(
+  configs: TenantIntegrationConfigs | null | undefined,
+  options?: { includeSecretValues?: boolean },
+): Partial<Record<TenantIntegrationProvider, SerializableProviderConfig>> {
+  const normalized = normalizeTenantIntegrationConfigs(configs);
+  const out: Partial<Record<TenantIntegrationProvider, SerializableProviderConfig>> = {};
+  for (const provider of Object.keys(normalized) as TenantIntegrationProvider[]) {
+    const config = normalized[provider];
+    if (!config) continue;
+    out[provider] = {
+      enabled: config.enabled,
+      apiKey: options?.includeSecretValues ? config.apiKey : config.apiKey ? REDACTED_SECRET : null,
+      webhookToken: options?.includeSecretValues
+        ? config.webhookToken
+        : config.webhookToken
+          ? REDACTED_SECRET
+          : null,
+      endpointUrl: config.endpointUrl,
+    };
+  }
+  return out;
 }
 
 function serializeTenantSettings(row: {
@@ -77,9 +109,11 @@ function serializeTenantSettings(row: {
   recoveryChannelMode: string | null;
   webhookProviderPreferred: string | null;
   integrationConfigs?: TenantIntegrationConfigs | null;
-}, options?: { includeProviderConfigs?: boolean }) {
+}, options?: { includeProviderConfigs?: boolean; includeSecretValues?: boolean }) {
   const integrationConfigs = options?.includeProviderConfigs
-    ? normalizeTenantIntegrationConfigs(row.integrationConfigs)
+    ? serializeProviderConfigs(row.integrationConfigs, {
+        includeSecretValues: options?.includeSecretValues,
+      })
     : {};
   return {
     ok: true,
@@ -181,6 +215,39 @@ function bodyToTenantPatch(parsed: z.infer<typeof bodySchema>): TenantPatch {
   return updates;
 }
 
+function preserveMaskedSecrets(
+  nextConfigs: TenantIntegrationConfigs | null | undefined,
+  currentConfigs: TenantIntegrationConfigs | null | undefined,
+): TenantIntegrationConfigs | null {
+  const next = normalizeTenantIntegrationConfigs(nextConfigs);
+  const current = normalizeTenantIntegrationConfigs(currentConfigs);
+  const merged: TenantIntegrationConfigs = {};
+
+  for (const provider of ["hotmart", "kiwify", "hubla", "generic"] as TenantIntegrationProvider[]) {
+    const nextConfig = next[provider];
+    const currentConfig = current[provider];
+    if (!nextConfig && !currentConfig) continue;
+    if (!nextConfig) {
+      if (currentConfig) merged[provider] = currentConfig;
+      continue;
+    }
+
+    merged[provider] = {
+      ...nextConfig,
+      apiKey:
+        nextConfig.apiKey === REDACTED_SECRET
+          ? currentConfig?.apiKey ?? null
+          : nextConfig.apiKey ?? null,
+      webhookToken:
+        nextConfig.webhookToken === REDACTED_SECRET
+          ? currentConfig?.webhookToken ?? null
+          : nextConfig.webhookToken ?? null,
+    };
+  }
+
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
 export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { tenantId: string }; Querystring: Record<string, string | undefined> }>(
     "/admin/tenants/:tenantId/limits",
@@ -224,7 +291,12 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(tenants.id, tenantId))
         .limit(1);
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
+      return reply.status(200).send(
+        serializeTenantSettings(row, {
+          includeProviderConfigs: true,
+          includeSecretValues: req.tenantAccessViaAdminToken === true,
+        }),
+      );
     },
   );
 
@@ -266,6 +338,17 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const updates = bodyToTenantPatch(parsedBody.data) as Record<string, unknown>;
+      if ("integrationConfigs" in updates) {
+        const [currentTenant] = await db
+          .select({ integrationConfigs: tenants.integrationConfigs })
+          .from(tenants)
+          .where(eq(tenants.id, tenantId))
+          .limit(1);
+        updates.integrationConfigs = preserveMaskedSecrets(
+          updates.integrationConfigs as TenantIntegrationConfigs | null | undefined,
+          currentTenant?.integrationConfigs ?? null,
+        );
+      }
       stripPlanFieldsForSessionTenant(req, updates);
 
       if (Object.keys(updates).length === 0) {
@@ -295,7 +378,12 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
         });
 
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
+      return reply.status(200).send(
+        serializeTenantSettings(row, {
+          includeProviderConfigs: true,
+          includeSecretValues: req.tenantAccessViaAdminToken === true,
+        }),
+      );
     },
   );
 
@@ -338,7 +426,10 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       items: rows.map((row) => ({
         id: row.id,
         name: row.name,
-        ...serializeTenantSettings(row, { includeProviderConfigs: true }).settings,
+        ...serializeTenantSettings(row, {
+          includeProviderConfigs: true,
+          includeSecretValues: true,
+        }).settings,
       })),
     });
   });
@@ -387,6 +478,7 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       ...serializeTenantSettings(row, {
         includeProviderConfigs:
           req.tenantAccessViaAdminToken === true || req.tenantMembershipRole !== "readonly",
+        includeSecretValues: req.tenantAccessViaAdminToken === true,
       }),
       integrations: {
         hasWebhookToken: Boolean(tokenRow),
@@ -423,6 +515,17 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const updates = bodyToTenantPatch(parsedBody.data) as Record<string, unknown>;
+      if ("integrationConfigs" in updates) {
+        const [currentTenant] = await db
+          .select({ integrationConfigs: tenants.integrationConfigs })
+          .from(tenants)
+          .where(eq(tenants.id, tenantId))
+          .limit(1);
+        updates.integrationConfigs = preserveMaskedSecrets(
+          updates.integrationConfigs as TenantIntegrationConfigs | null | undefined,
+          currentTenant?.integrationConfigs ?? null,
+        );
+      }
       stripPlanFieldsForSessionTenant(req, updates);
 
       if (Object.keys(updates).length === 0) {
@@ -452,7 +555,12 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
         });
 
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
+      return reply.status(200).send(
+        serializeTenantSettings(row, {
+          includeProviderConfigs: true,
+          includeSecretValues: req.tenantAccessViaAdminToken === true,
+        }),
+      );
     },
   );
 
