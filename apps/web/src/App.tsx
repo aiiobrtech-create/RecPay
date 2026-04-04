@@ -334,6 +334,11 @@ function emptyProviderConfig(endpointUrl = ""): ProviderConfig {
   };
 }
 
+function providerConfigHasRequiredFields(config: ProviderConfig | null | undefined): boolean {
+  if (!config) return false;
+  return Boolean(config.apiKey.trim() && config.webhookToken.trim() && config.endpointUrl.trim());
+}
+
 type DropdownOption<TValue extends string> = {
   value: TValue | "";
   label: string;
@@ -1290,15 +1295,6 @@ export function App() {
     isMessagesSceneDropdownOpen,
   ]);
 
-  useEffect(() => {
-    const preferred = tenantSettings.webhookProviderPreferred;
-    if (!preferred) return;
-    setEnabledProviders((current) => ({
-      ...current,
-      [preferred]: true,
-    }));
-  }, [tenantSettings.webhookProviderPreferred]);
-
   const pageSizeOptions = [
     { value: "5", label: "5 itens" },
     { value: "10", label: "10 itens" },
@@ -1337,6 +1333,9 @@ export function App() {
     );
     setProviderModalOpen(true);
   };
+
+  const isProviderConnected = (providerKey: ProviderKey) =>
+    enabledProviders[providerKey] && providerConfigHasRequiredFields(providerConfigs[providerKey]);
 
   const onSaveView = () => {
     const name = viewName.trim();
@@ -1528,7 +1527,7 @@ export function App() {
       pushToast("Ative o provedor antes de testar.");
       return;
     }
-    if (!config?.apiKey || !config?.webhookToken || !config?.endpointUrl) {
+    if (!providerConfigHasRequiredFields(config)) {
       pushToast("Preencha chave, token e endereço antes do teste.");
       openProviderConfig(provider);
       return;
@@ -1674,6 +1673,28 @@ export function App() {
       pushToast("Seu usuário tem permissão somente leitura para esta conta.");
       return;
     }
+    const invalidEnabledProvider = providerItems.find(
+      (provider) => enabledProviders[provider.key] && !providerConfigHasRequiredFields(providerConfigs[provider.key]),
+    );
+    if (invalidEnabledProvider) {
+      pushToast(`Configure ${invalidEnabledProvider.label} antes de ativar o provedor.`);
+      openProviderConfig(invalidEnabledProvider.key);
+      return;
+    }
+    const providerConfigsPayload: Record<ProviderKey, ProviderConfig | null> = {
+      hotmart: providerConfigs.hotmart
+        ? { ...providerConfigs.hotmart, enabled: isProviderConnected("hotmart") }
+        : null,
+      kiwify: providerConfigs.kiwify
+        ? { ...providerConfigs.kiwify, enabled: isProviderConnected("kiwify") }
+        : null,
+      hubla: providerConfigs.hubla
+        ? { ...providerConfigs.hubla, enabled: isProviderConnected("hubla") }
+        : null,
+      generic: providerConfigs.generic
+        ? { ...providerConfigs.generic, enabled: isProviderConnected("generic") }
+        : null,
+    };
     setSettingsSaving(true);
     try {
       const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/settings`, accessToken, {
@@ -1685,18 +1706,20 @@ export function App() {
           recoveryContactCooldownMinutes: tenantSettings.recoveryContactCooldownMinutes,
           recoveryContactMaxAttemptsPerDay: tenantSettings.recoveryContactMaxAttemptsPerDay,
           webhookProviderPreferred: tenantSettings.webhookProviderPreferred,
-          providerConfigs: {
-            hotmart: providerConfigs.hotmart,
-            kiwify: providerConfigs.kiwify,
-            hubla: providerConfigs.hubla,
-            generic: providerConfigs.generic,
-          },
+          providerConfigs: providerConfigsPayload,
         }),
       });
       const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null | undefined;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
+      setProviderConfigs(providerConfigsPayload);
+      setEnabledProviders({
+        hotmart: providerConfigsPayload.hotmart?.enabled ?? false,
+        kiwify: providerConfigsPayload.kiwify?.enabled ?? false,
+        hubla: providerConfigsPayload.hubla?.enabled ?? false,
+        generic: providerConfigsPayload.generic?.enabled ?? false,
+      });
       pushToast("Configurações salvas.");
     } catch (error) {
       pushToast(`Falha ao salvar configurações: ${error instanceof Error ? error.message : "erro desconhecido"}`);
@@ -3756,19 +3779,47 @@ export function App() {
                             type="button"
                             className={`provider-toggle ${enabledProviders[provider.key] ? "on" : ""}`}
                             aria-pressed={enabledProviders[provider.key]}
-                            onClick={() =>
+                            onClick={() => {
+                              if (enabledProviders[provider.key]) {
+                                setEnabledProviders((current) => ({
+                                  ...current,
+                                  [provider.key]: false,
+                                }));
+                                setProviderConfigs((current) => ({
+                                  ...current,
+                                  [provider.key]: current[provider.key]
+                                    ? { ...current[provider.key]!, enabled: false }
+                                    : current[provider.key],
+                                }));
+                                return;
+                              }
+                              if (!providerConfigHasRequiredFields(providerConfigs[provider.key])) {
+                                pushToast(`Configure ${provider.label} antes de ativar o provedor.`);
+                                openProviderConfig(provider.key);
+                                return;
+                              }
                               setEnabledProviders((current) => ({
                                 ...current,
-                                [provider.key]: !current[provider.key],
-                              }))
-                            }
+                                [provider.key]: true,
+                              }));
+                              setProviderConfigs((current) => ({
+                                ...current,
+                                [provider.key]: current[provider.key]
+                                  ? { ...current[provider.key]!, enabled: true }
+                                  : current[provider.key],
+                              }));
+                            }}
                           >
                             <span className="provider-toggle-thumb" />
                           </button>
                         </div>
                         <div className="provider-card-foot">
-                          <span className={enabledProviders[provider.key] ? "is-online" : "is-offline"}>
-                            {enabledProviders[provider.key] ? "Conectado" : "Pendente"}
+                          <span className={isProviderConnected(provider.key) ? "is-online" : "is-offline"}>
+                            {isProviderConnected(provider.key)
+                              ? "Conectado"
+                              : providerConfigHasRequiredFields(providerConfigs[provider.key])
+                                ? "Configurado"
+                                : "Pendente"}
                           </span>
                           <div className="provider-actions">
                             <button
@@ -3780,7 +3831,7 @@ export function App() {
                             <button
                               className="btn btn-tertiary"
                               onClick={() => runProviderConnectionTest(provider.key)}
-                              disabled={!enabledProviders[provider.key]}
+                              disabled={!isProviderConnected(provider.key)}
                             >
                               Testar
                             </button>
@@ -3817,7 +3868,7 @@ export function App() {
                           {isIntegrationsProviderOpen && (
                             <div className="re-dropdown-menu" role="listbox">
                               {webhookProviderOptions
-                                .filter((opt) => opt.value === "" || enabledProviders[opt.value as WebhookProvider])
+                                .filter((opt) => opt.value === "" || isProviderConnected(opt.value as WebhookProvider))
                                 .map((opt) => {
                                   const active = (tenantSettings.webhookProviderPreferred ?? "") === opt.value;
                                   return (
@@ -3883,7 +3934,7 @@ export function App() {
                 <h4>Prontidão</h4>
                 <ul>
                   <li className={targetTenantId ? "ok" : "todo"}>Conta vinculada</li>
-                  <li className={Object.values(enabledProviders).some(Boolean) ? "ok" : "todo"}>Provedor ativo</li>
+                  <li className={providerItems.some((provider) => isProviderConnected(provider.key)) ? "ok" : "todo"}>Provedor ativo</li>
                   <li className={tenantSettings.webhookProviderPreferred ? "ok" : "todo"}>Plataforma de vendas definida</li>
                   <li className={webhookUrl ? "ok" : "todo"}>URL gerada</li>
                   <li className={!settingsSaving ? "ok" : "todo"}>Salvo</li>
@@ -3947,10 +3998,10 @@ export function App() {
                     <button
                       className="btn btn-secondary"
                       onClick={() => {
-                        setEnabledProviders((current) => ({ ...current, [providerEditing]: true }));
                         setProviderConfigDraft((current) => ({ ...current, enabled: true }));
-                        pushToast("Provedor ativado.");
+                        pushToast("Provedor marcado para ativacao. Salve a configuracao.");
                       }}
+                      disabled={!providerConfigHasRequiredFields(providerConfigDraft)}
                     >
                       Ativar provedor
                     </button>
@@ -3960,16 +4011,20 @@ export function App() {
                     <button
                       className="btn btn-primary"
                       onClick={() => {
+                        if (providerConfigDraft.enabled && !providerConfigHasRequiredFields(providerConfigDraft)) {
+                          pushToast("Preencha chave, token e endereco antes de ativar.");
+                          return;
+                        }
                         setProviderConfigs((current) => ({
                           ...current,
                           [providerEditing]: {
                             ...providerConfigDraft,
-                            enabled: enabledProviders[providerEditing] || providerConfigDraft.enabled,
+                            enabled: providerConfigDraft.enabled,
                           },
                         }));
                         setEnabledProviders((current) => ({
                           ...current,
-                          [providerEditing]: providerConfigDraft.enabled || current[providerEditing],
+                          [providerEditing]: providerConfigDraft.enabled,
                         }));
                         pushToast("Configuração pronta. Clique em Salvar configurações.");
                         setProviderModalOpen(false);
