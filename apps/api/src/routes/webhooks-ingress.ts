@@ -15,6 +15,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { enqueueProcessEvent } from "@re/queue";
 import { getDb } from "../db.js";
+import { providerIntegrationConfig } from "../lib/tenant-integrations.js";
 import { checkGenericWebhookPolicy } from "../lib/webhook-generic-policy.js";
 import { getEventsQueue } from "../queue-singleton.js";
 
@@ -111,6 +112,7 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
         .select({
           id: tenants.id,
           planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
+          integrationConfigs: tenants.integrationConfigs,
         })
         .from(tenants)
         .where(eq(tenants.id, ingress.tenantId))
@@ -153,7 +155,11 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
       let canonical: Record<string, unknown> | null = null;
 
       if (provider === "hotmart") {
-        const verified = verifyHotmartWebhook(req.headers, req.body);
+        const config = providerIntegrationConfig(tenant?.integrationConfigs, "hotmart");
+        const verified = verifyHotmartWebhook(req.headers, req.body, {
+          hottok: config?.webhookToken ?? null,
+          secret: config?.apiKey ?? null,
+        });
         if (!verified.ok) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }
@@ -168,7 +174,11 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
         }
         canonical = canonicalToRecord(parsedCanonical);
       } else if (provider === "kiwify") {
-        const verified = verifyKiwifyWebhook(req.headers, req.body);
+        const config = providerIntegrationConfig(tenant?.integrationConfigs, "kiwify");
+        const verified = verifyKiwifyWebhook(req.headers, req.body, {
+          token: config?.webhookToken ?? null,
+          secret: config?.apiKey ?? null,
+        });
         if (!verified.ok) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }
@@ -183,7 +193,11 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
         }
         canonical = canonicalToRecord(parsedCanonical);
       } else if (provider === "hubla") {
-        const verified = verifyHublaWebhook(req.headers, req.body);
+        const config = providerIntegrationConfig(tenant?.integrationConfigs, "hubla");
+        const verified = verifyHublaWebhook(req.headers, req.body, {
+          token: config?.webhookToken ?? null,
+          secret: config?.apiKey ?? null,
+        });
         if (!verified.ok) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }

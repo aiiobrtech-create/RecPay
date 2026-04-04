@@ -68,9 +68,10 @@ function safeEq(a: string, b: string): boolean {
 export function verifyKiwifyWebhook(
   headers: IncomingHttpHeaders,
   body: unknown,
+  credentials?: { token?: string | null; secret?: string | null },
 ): { ok: true } | { ok: false; reason: string } {
-  const token = process.env.KIWIFY_WEBHOOK_TOKEN?.trim();
-  const secret = process.env.KIWIFY_WEBHOOK_SECRET?.trim();
+  const token = credentials?.token?.trim() || process.env.KIWIFY_WEBHOOK_TOKEN?.trim();
+  const secret = credentials?.secret?.trim() || process.env.KIWIFY_WEBHOOK_SECRET?.trim();
 
   if (!token && !secret) {
     return { ok: false, reason: "kiwify_signature_not_configured" };

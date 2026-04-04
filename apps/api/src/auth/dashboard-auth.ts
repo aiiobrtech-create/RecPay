@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { memberships, tenants } from "@re/db";
 import { getDb } from "../db.js";
+import { ensureUserHasTenantMembership } from "../lib/first-login-provision.js";
 import { getSupabaseAdmin } from "../lib/supabase-admin.js";
 
 /**
@@ -153,6 +154,8 @@ export async function dashboardTenantPreHandler(req: FastifyRequest, reply: Fast
     await reply.status(503).send({ ok: false, error: "database_unavailable" });
     return;
   }
+
+  await ensureUserHasTenantMembership(db, data.user);
 
   const rows = await db
     .select({

@@ -69,9 +69,10 @@ function safeEq(a: string, b: string): boolean {
 export function verifyHublaWebhook(
   headers: IncomingHttpHeaders,
   body: unknown,
+  credentials?: { token?: string | null; secret?: string | null },
 ): { ok: true } | { ok: false; reason: string } {
-  const token = process.env.HUBLA_WEBHOOK_TOKEN?.trim();
-  const secret = process.env.HUBLA_WEBHOOK_SECRET?.trim();
+  const token = credentials?.token?.trim() || process.env.HUBLA_WEBHOOK_TOKEN?.trim();
+  const secret = credentials?.secret?.trim() || process.env.HUBLA_WEBHOOK_SECRET?.trim();
 
   if (!token && !secret) {
     return { ok: false, reason: "hubla_signature_not_configured" };

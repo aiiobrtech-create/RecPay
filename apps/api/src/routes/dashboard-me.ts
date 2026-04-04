@@ -3,6 +3,7 @@ import { memberships, tenants } from "@re/db";
 import type { FastifyPluginAsync } from "fastify";
 import { getDb } from "../db.js";
 import { extractBearerToken, isDashboardAuthEnforced } from "../auth/dashboard-auth.js";
+import { ensureUserHasTenantMembership } from "../lib/first-login-provision.js";
 import { getSupabaseAdmin } from "../lib/supabase-admin.js";
 
 export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
@@ -36,6 +37,8 @@ export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
     if (!db) {
       return reply.status(503).send({ ok: false, error: "database_unavailable" });
     }
+
+    await ensureUserHasTenantMembership(db, data.user);
 
     const rows = await db
       .select({

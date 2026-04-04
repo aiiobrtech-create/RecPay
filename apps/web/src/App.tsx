@@ -247,6 +247,12 @@ type SortDirection = "asc" | "desc";
 type SideMenuKey = "dashboard" | "attempts" | "integrations" | "messages" | "support" | "account" | "settings";
 type WebhookProvider = "hotmart" | "kiwify" | "hubla" | "generic";
 type ProviderKey = WebhookProvider;
+type ProviderConfig = {
+  enabled: boolean;
+  apiKey: string;
+  webhookToken: string;
+  endpointUrl: string;
+};
 
 interface SavedView {
   id: string;
@@ -312,9 +318,20 @@ interface TriggerCatalogEntry {
 interface TenantDashboardSettings {
   planMonthlyEventsLimit: number | null;
   planMonthlyRecoveryLimit: number | null;
+  /** `essential` | `growth` | `scale` — espelho do Stripe/metadata; ajuste só com admin. */
+  billingPlan: string | null;
   recoveryContactCooldownMinutes: number | null;
   recoveryContactMaxAttemptsPerDay: number | null;
   webhookProviderPreferred: WebhookProvider | null;
+}
+
+function emptyProviderConfig(endpointUrl = ""): ProviderConfig {
+  return {
+    enabled: false,
+    apiKey: "",
+    webhookToken: "",
+    endpointUrl,
+  };
 }
 
 type DropdownOption<TValue extends string> = {
@@ -374,6 +391,7 @@ export function App() {
   const [tenantSettings, setTenantSettings] = useState<TenantDashboardSettings>({
     planMonthlyEventsLimit: null,
     planMonthlyRecoveryLimit: null,
+    billingPlan: null,
     recoveryContactCooldownMinutes: null,
     recoveryContactMaxAttemptsPerDay: null,
     webhookProviderPreferred: null,
@@ -402,19 +420,15 @@ export function App() {
   const [isAttemptStatusOpen, setIsAttemptStatusOpen] = useState(false);
   const attemptStatusRef = useRef<HTMLDivElement | null>(null);
   const [enabledProviders, setEnabledProviders] = useState<Record<WebhookProvider, boolean>>({
-    hotmart: true,
-    kiwify: true,
-    hubla: true,
-    generic: true,
+    hotmart: false,
+    kiwify: false,
+    hubla: false,
+    generic: false,
   });
   const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [providerEditing, setProviderEditing] = useState<ProviderKey | null>(null);
-  const [providerConfigDraft, setProviderConfigDraft] = useState({
-    apiKey: "",
-    webhookToken: "",
-    endpointUrl: "",
-  });
-  const [providerConfigs, setProviderConfigs] = useState<Record<ProviderKey, { apiKey: string; webhookToken: string; endpointUrl: string } | null>>({
+  const [providerConfigDraft, setProviderConfigDraft] = useState<ProviderConfig>(emptyProviderConfig());
+  const [providerConfigs, setProviderConfigs] = useState<Record<ProviderKey, ProviderConfig | null>>({
     hotmart: null,
     kiwify: null,
     hubla: null,
@@ -1313,12 +1327,14 @@ export function App() {
   ];
 
   const openProviderConfig = (providerKey: ProviderKey) => {
+    const existing = providerConfigs[providerKey];
     setProviderEditing(providerKey);
-    setProviderConfigDraft({
-      apiKey: "",
-      webhookToken: "",
-      endpointUrl: webhookUrl || "",
-    });
+    setProviderConfigDraft(
+      existing ?? {
+        ...emptyProviderConfig(webhookUrl || ""),
+        enabled: enabledProviders[providerKey],
+      },
+    );
     setProviderModalOpen(true);
   };
 
@@ -1569,6 +1585,7 @@ export function App() {
               limits?: {
                 planMonthlyEventsLimit?: number | null;
                 planMonthlyRecoveryLimit?: number | null;
+                billingPlan?: string | null;
               };
               recoveryPolicy?: {
                 contactCooldownMinutes?: number | null;
@@ -1576,6 +1593,7 @@ export function App() {
               };
               integrations?: {
                 webhookProviderPreferred?: WebhookProvider | null;
+                providerConfigs?: Partial<Record<ProviderKey, Partial<ProviderConfig> | null>>;
               };
             };
             error?: string;
@@ -1588,9 +1606,52 @@ export function App() {
       setTenantSettings({
         planMonthlyEventsLimit: payload.settings.limits?.planMonthlyEventsLimit ?? null,
         planMonthlyRecoveryLimit: payload.settings.limits?.planMonthlyRecoveryLimit ?? null,
+        billingPlan: payload.settings.limits?.billingPlan ?? null,
         recoveryContactCooldownMinutes: payload.settings.recoveryPolicy?.contactCooldownMinutes ?? null,
         recoveryContactMaxAttemptsPerDay: payload.settings.recoveryPolicy?.contactMaxAttemptsPerDay ?? null,
         webhookProviderPreferred: payload.settings.integrations?.webhookProviderPreferred ?? null,
+      });
+      const configs = payload.settings.integrations?.providerConfigs ?? {};
+      const nextConfigs: Record<ProviderKey, ProviderConfig | null> = {
+        hotmart: configs.hotmart
+          ? {
+              enabled: Boolean(configs.hotmart.enabled),
+              apiKey: configs.hotmart.apiKey ?? "",
+              webhookToken: configs.hotmart.webhookToken ?? "",
+              endpointUrl: configs.hotmart.endpointUrl ?? webhookUrl ?? "",
+            }
+          : null,
+        kiwify: configs.kiwify
+          ? {
+              enabled: Boolean(configs.kiwify.enabled),
+              apiKey: configs.kiwify.apiKey ?? "",
+              webhookToken: configs.kiwify.webhookToken ?? "",
+              endpointUrl: configs.kiwify.endpointUrl ?? webhookUrl ?? "",
+            }
+          : null,
+        hubla: configs.hubla
+          ? {
+              enabled: Boolean(configs.hubla.enabled),
+              apiKey: configs.hubla.apiKey ?? "",
+              webhookToken: configs.hubla.webhookToken ?? "",
+              endpointUrl: configs.hubla.endpointUrl ?? webhookUrl ?? "",
+            }
+          : null,
+        generic: configs.generic
+          ? {
+              enabled: Boolean(configs.generic.enabled),
+              apiKey: configs.generic.apiKey ?? "",
+              webhookToken: configs.generic.webhookToken ?? "",
+              endpointUrl: configs.generic.endpointUrl ?? webhookUrl ?? "",
+            }
+          : null,
+      };
+      setProviderConfigs(nextConfigs);
+      setEnabledProviders({
+        hotmart: nextConfigs.hotmart?.enabled ?? false,
+        kiwify: nextConfigs.kiwify?.enabled ?? false,
+        hubla: nextConfigs.hubla?.enabled ?? false,
+        generic: nextConfigs.generic?.enabled ?? false,
       });
       pushToast("Configurações carregadas.");
     } catch (error) {
@@ -1624,6 +1685,12 @@ export function App() {
           recoveryContactCooldownMinutes: tenantSettings.recoveryContactCooldownMinutes,
           recoveryContactMaxAttemptsPerDay: tenantSettings.recoveryContactMaxAttemptsPerDay,
           webhookProviderPreferred: tenantSettings.webhookProviderPreferred,
+          providerConfigs: {
+            hotmart: providerConfigs.hotmart,
+            kiwify: providerConfigs.kiwify,
+            hubla: providerConfigs.hubla,
+            generic: providerConfigs.generic,
+          },
         }),
       });
       const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null | undefined;
@@ -1668,6 +1735,12 @@ export function App() {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setWebhookUrl(payload.webhookUrl);
+      setProviderConfigs((current) => ({
+        hotmart: current.hotmart ? { ...current.hotmart, endpointUrl: payload.webhookUrl! } : current.hotmart,
+        kiwify: current.kiwify ? { ...current.kiwify, endpointUrl: payload.webhookUrl! } : current.kiwify,
+        hubla: current.hubla ? { ...current.hubla, endpointUrl: payload.webhookUrl! } : current.hubla,
+        generic: current.generic ? { ...current.generic, endpointUrl: payload.webhookUrl! } : current.generic,
+      }));
       pushToast("URL de webhook gerada.");
     } catch (error) {
       pushToast(`Falha ao gerar webhook: ${error instanceof Error ? error.message : "erro desconhecido"}`);
@@ -3875,6 +3948,7 @@ export function App() {
                       className="btn btn-secondary"
                       onClick={() => {
                         setEnabledProviders((current) => ({ ...current, [providerEditing]: true }));
+                        setProviderConfigDraft((current) => ({ ...current, enabled: true }));
                         pushToast("Provedor ativado.");
                       }}
                     >
@@ -3886,8 +3960,18 @@ export function App() {
                     <button
                       className="btn btn-primary"
                       onClick={() => {
-                        setProviderConfigs((current) => ({ ...current, [providerEditing]: { ...providerConfigDraft } }));
-                        pushToast("Rascunho salvo neste navegador.");
+                        setProviderConfigs((current) => ({
+                          ...current,
+                          [providerEditing]: {
+                            ...providerConfigDraft,
+                            enabled: enabledProviders[providerEditing] || providerConfigDraft.enabled,
+                          },
+                        }));
+                        setEnabledProviders((current) => ({
+                          ...current,
+                          [providerEditing]: providerConfigDraft.enabled || current[providerEditing],
+                        }));
+                        pushToast("Configuração pronta. Clique em Salvar configurações.");
                         setProviderModalOpen(false);
                       }}
                     >

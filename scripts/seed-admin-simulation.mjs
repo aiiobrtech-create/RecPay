@@ -24,6 +24,7 @@ try {
       name,
       plan_monthly_events_limit,
       plan_monthly_recovery_limit,
+      billing_plan,
       recovery_contact_cooldown_minutes,
       recovery_contact_max_attempts_per_day,
       recovery_channel_mode,
@@ -31,8 +32,9 @@ try {
     )
     VALUES (
       ${tenantName},
-      5000,
-      2000,
+      15000,
+      300,
+      'growth',
       180,
       3,
       'evolution',

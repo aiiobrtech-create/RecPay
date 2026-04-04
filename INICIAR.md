@@ -376,10 +376,15 @@ Observações:
 
 ## 10. Limites por tenant (Etapa seguinte)
 
+Nomes comerciais dos planos (Essencial, Growth, Scale), preços e lista de entregáveis exibidos na LP estão espelhados em **`docs/PRECIFICACAO.md`** — use esse arquivo para alinhar copy com o que a página promete; os números abaixo são os **limites técnicos** no banco.
+
 Os limites de plano ficam na tabela `tenants`:
 
 - `plan_monthly_events_limit`: máximo de eventos webhook aceitos por mês.
 - `plan_monthly_recovery_limit`: máximo de tentativas de recuperação por mês.
+- `billing_plan`: código comercial opcional (`essential`, `growth`, `scale`), alinhado à LP e ao metadata Stripe `re_plan`.
+
+Valores padrão por tier (quando `re_plan` vem no checkout) estão em `docs/PRECIFICACAO.md` (tabela “Limites técnicos”). Aplique migrações após puxar o código: `npm run db:migrate -w @re/db` (inclui coluna `billing_plan`).
 
 Comportamento:
 
@@ -407,7 +412,7 @@ Atualizar limites:
 curl -sS -X PATCH "http://127.0.0.1:3000/admin/tenants/SEU_TENANT_ID/limits" \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: $ADMIN_API_TOKEN" \
-  -d '{"planMonthlyEventsLimit":5000,"planMonthlyRecoveryLimit":1000}'
+  -d '{"planMonthlyEventsLimit":15000,"planMonthlyRecoveryLimit":300,"billingPlan":"growth"}'
 ```
 
 Resumo mensal para auditoria de uso/cobrança:

@@ -1,11 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { hashWebhookIngressToken } from "@re/core";
 import { eq } from "drizzle-orm";
+import type { TenantIntegrationConfigs, TenantIntegrationProvider } from "@re/db";
 import { tenants, webhookIngressTokens } from "@re/db";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { assertTenantManagementAccess, isAdminTokenAuthorized } from "../auth/dashboard-auth.js";
 import { getDb } from "../db.js";
+import { buildTenantIntegrationConfigs, normalizeTenantIntegrationConfigs } from "../lib/tenant-integrations.js";
 
 const paramsSchema = z.object({
   tenantId: z.string().uuid(),
@@ -17,14 +19,34 @@ const querySchema = z.object({
 
 const webhookProviderSchema = z.enum(["hotmart", "kiwify", "hubla", "generic"]);
 const channelModeSchema = z.enum(["simulated", "evolution"]);
+const billingPlanSchema = z.enum(["essential", "growth", "scale"]);
+const providerConfigSchema = z.object({
+  enabled: z.boolean().optional().default(false),
+  apiKey: z.string().trim().max(512).nullable().optional(),
+  webhookToken: z.string().trim().max(512).nullable().optional(),
+  endpointUrl: z.string().trim().max(2048).nullable().optional(),
+});
+const integrationConfigsSchema = z
+  .object({
+    hotmart: providerConfigSchema.nullable().optional(),
+    kiwify: providerConfigSchema.nullable().optional(),
+    hubla: providerConfigSchema.nullable().optional(),
+    generic: providerConfigSchema.nullable().optional(),
+  })
+  .optional();
 
 const bodySchema = z.object({
   planMonthlyEventsLimit: z.number().int().min(0).max(1_000_000).nullable().optional(),
   planMonthlyRecoveryLimit: z.number().int().min(0).max(1_000_000).nullable().optional(),
+  billingPlan: billingPlanSchema.nullable().optional(),
+  monthlyFeeCents: z.number().int().min(0).max(100_000_000).optional(),
+  successFeeBps: z.number().int().min(0).max(10_000).optional(),
+  billingCycleAnchorDay: z.number().int().min(1).max(28).optional(),
   recoveryContactCooldownMinutes: z.number().int().min(1).max(10_080).nullable().optional(),
   recoveryContactMaxAttemptsPerDay: z.number().int().min(1).max(20).nullable().optional(),
   recoveryChannelMode: channelModeSchema.nullable().optional(),
   webhookProviderPreferred: webhookProviderSchema.nullable().optional(),
+  providerConfigs: integrationConfigsSchema,
 });
 
 function webhookBaseUrl(): string {
@@ -38,11 +60,19 @@ function serializeTenantSettings(row: {
   id: string;
   planMonthlyEventsLimit: number | null;
   planMonthlyRecoveryLimit: number | null;
+  billingPlan: string | null;
+  monthlyFeeCents: number | null;
+  successFeeBps: number | null;
+  billingCycleAnchorDay: number | null;
   recoveryContactCooldownMinutes: number | null;
   recoveryContactMaxAttemptsPerDay: number | null;
   recoveryChannelMode: string | null;
   webhookProviderPreferred: string | null;
-}) {
+  integrationConfigs?: TenantIntegrationConfigs | null;
+}, options?: { includeProviderConfigs?: boolean }) {
+  const integrationConfigs = options?.includeProviderConfigs
+    ? normalizeTenantIntegrationConfigs(row.integrationConfigs)
+    : {};
   return {
     ok: true,
     tenantId: row.id,
@@ -50,6 +80,12 @@ function serializeTenantSettings(row: {
       limits: {
         planMonthlyEventsLimit: row.planMonthlyEventsLimit,
         planMonthlyRecoveryLimit: row.planMonthlyRecoveryLimit,
+        billingPlan: row.billingPlan,
+      },
+      billing: {
+        monthlyFeeCents: row.monthlyFeeCents,
+        successFeeBps: row.successFeeBps,
+        billingCycleAnchorDay: row.billingCycleAnchorDay,
       },
       recoveryPolicy: {
         contactCooldownMinutes: row.recoveryContactCooldownMinutes,
@@ -58,6 +94,7 @@ function serializeTenantSettings(row: {
       integrations: {
         recoveryChannelMode: row.recoveryChannelMode,
         webhookProviderPreferred: row.webhookProviderPreferred,
+        providerConfigs: integrationConfigs,
       },
     },
   };
@@ -70,15 +107,21 @@ function stripPlanFieldsForSessionTenant(req: FastifyRequest, updates: Record<st
   if (req.tenantAccessViaAdminToken) return;
   delete updates.planMonthlyEventsLimit;
   delete updates.planMonthlyRecoveryLimit;
+  delete updates.billingPlan;
 }
 
 type TenantPatch = {
   planMonthlyEventsLimit?: number | null;
   planMonthlyRecoveryLimit?: number | null;
+  billingPlan?: string | null;
+  monthlyFeeCents?: number;
+  successFeeBps?: number;
+  billingCycleAnchorDay?: number;
   recoveryContactCooldownMinutes?: number | null;
   recoveryContactMaxAttemptsPerDay?: number | null;
   recoveryChannelMode?: "simulated" | "evolution" | null;
   webhookProviderPreferred?: "hotmart" | "kiwify" | "hubla" | "generic" | null;
+  integrationConfigs?: TenantIntegrationConfigs | null;
 };
 
 function bodyToTenantPatch(parsed: z.infer<typeof bodySchema>): TenantPatch {
@@ -88,6 +131,18 @@ function bodyToTenantPatch(parsed: z.infer<typeof bodySchema>): TenantPatch {
   }
   if ("planMonthlyRecoveryLimit" in parsed) {
     updates.planMonthlyRecoveryLimit = parsed.planMonthlyRecoveryLimit ?? null;
+  }
+  if ("billingPlan" in parsed) {
+    updates.billingPlan = parsed.billingPlan ?? null;
+  }
+  if ("monthlyFeeCents" in parsed) {
+    updates.monthlyFeeCents = parsed.monthlyFeeCents;
+  }
+  if ("successFeeBps" in parsed) {
+    updates.successFeeBps = parsed.successFeeBps;
+  }
+  if ("billingCycleAnchorDay" in parsed) {
+    updates.billingCycleAnchorDay = parsed.billingCycleAnchorDay;
   }
   if ("recoveryContactCooldownMinutes" in parsed) {
     updates.recoveryContactCooldownMinutes = parsed.recoveryContactCooldownMinutes ?? null;
@@ -100,6 +155,20 @@ function bodyToTenantPatch(parsed: z.infer<typeof bodySchema>): TenantPatch {
   }
   if ("webhookProviderPreferred" in parsed) {
     updates.webhookProviderPreferred = parsed.webhookProviderPreferred ?? null;
+  }
+  if ("providerConfigs" in parsed) {
+    const rawConfigs = parsed.providerConfigs;
+    const nextConfigs = rawConfigs
+      ? buildTenantIntegrationConfigs(
+          rawConfigs as Partial<
+            Record<
+              TenantIntegrationProvider,
+              { enabled?: boolean; apiKey?: string | null; webhookToken?: string | null; endpointUrl?: string | null } | null | undefined
+            >
+          >,
+        )
+      : {};
+    updates.integrationConfigs = Object.keys(nextConfigs).length > 0 ? nextConfigs : null;
   }
   return updates;
 }
@@ -133,16 +202,21 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
           id: tenants.id,
           planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
           planMonthlyRecoveryLimit: tenants.planMonthlyRecoveryLimit,
+          billingPlan: tenants.billingPlan,
+          monthlyFeeCents: tenants.monthlyFeeCents,
+          successFeeBps: tenants.successFeeBps,
+          billingCycleAnchorDay: tenants.billingCycleAnchorDay,
           recoveryContactCooldownMinutes: tenants.recoveryContactCooldownMinutes,
           recoveryContactMaxAttemptsPerDay: tenants.recoveryContactMaxAttemptsPerDay,
           recoveryChannelMode: tenants.recoveryChannelMode,
           webhookProviderPreferred: tenants.webhookProviderPreferred,
+          integrationConfigs: tenants.integrationConfigs,
         })
         .from(tenants)
         .where(eq(tenants.id, tenantId))
         .limit(1);
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row));
+      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
     },
   );
 
@@ -201,14 +275,19 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
           id: tenants.id,
           planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
           planMonthlyRecoveryLimit: tenants.planMonthlyRecoveryLimit,
+          billingPlan: tenants.billingPlan,
+          monthlyFeeCents: tenants.monthlyFeeCents,
+          successFeeBps: tenants.successFeeBps,
+          billingCycleAnchorDay: tenants.billingCycleAnchorDay,
           recoveryContactCooldownMinutes: tenants.recoveryContactCooldownMinutes,
           recoveryContactMaxAttemptsPerDay: tenants.recoveryContactMaxAttemptsPerDay,
           recoveryChannelMode: tenants.recoveryChannelMode,
           webhookProviderPreferred: tenants.webhookProviderPreferred,
+          integrationConfigs: tenants.integrationConfigs,
         });
 
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row));
+      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
     },
   );
 
@@ -231,10 +310,15 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
         name: tenants.name,
         planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
         planMonthlyRecoveryLimit: tenants.planMonthlyRecoveryLimit,
+        billingPlan: tenants.billingPlan,
+        monthlyFeeCents: tenants.monthlyFeeCents,
+        successFeeBps: tenants.successFeeBps,
+        billingCycleAnchorDay: tenants.billingCycleAnchorDay,
         recoveryContactCooldownMinutes: tenants.recoveryContactCooldownMinutes,
         recoveryContactMaxAttemptsPerDay: tenants.recoveryContactMaxAttemptsPerDay,
         recoveryChannelMode: tenants.recoveryChannelMode,
         webhookProviderPreferred: tenants.webhookProviderPreferred,
+        integrationConfigs: tenants.integrationConfigs,
       })
       .from(tenants);
     const rows = parsedQuery.data.tenantId
@@ -246,7 +330,7 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       items: rows.map((row) => ({
         id: row.id,
         name: row.name,
-        ...serializeTenantSettings(row).settings,
+        ...serializeTenantSettings(row, { includeProviderConfigs: true }).settings,
       })),
     });
   });
@@ -270,10 +354,15 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
         id: tenants.id,
         planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
         planMonthlyRecoveryLimit: tenants.planMonthlyRecoveryLimit,
+        billingPlan: tenants.billingPlan,
+        monthlyFeeCents: tenants.monthlyFeeCents,
+        successFeeBps: tenants.successFeeBps,
+        billingCycleAnchorDay: tenants.billingCycleAnchorDay,
         recoveryContactCooldownMinutes: tenants.recoveryContactCooldownMinutes,
         recoveryContactMaxAttemptsPerDay: tenants.recoveryContactMaxAttemptsPerDay,
         recoveryChannelMode: tenants.recoveryChannelMode,
         webhookProviderPreferred: tenants.webhookProviderPreferred,
+        integrationConfigs: tenants.integrationConfigs,
       })
       .from(tenants)
       .where(eq(tenants.id, tenantId))
@@ -287,7 +376,10 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       .limit(1);
 
     return reply.status(200).send({
-      ...serializeTenantSettings(row),
+      ...serializeTenantSettings(row, {
+        includeProviderConfigs:
+          req.tenantAccessViaAdminToken === true || req.tenantMembershipRole !== "readonly",
+      }),
       integrations: {
         hasWebhookToken: Boolean(tokenRow),
         webhookTokenCreatedAt: tokenRow?.createdAt?.toISOString() ?? null,
@@ -340,14 +432,19 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
           id: tenants.id,
           planMonthlyEventsLimit: tenants.planMonthlyEventsLimit,
           planMonthlyRecoveryLimit: tenants.planMonthlyRecoveryLimit,
+          billingPlan: tenants.billingPlan,
+          monthlyFeeCents: tenants.monthlyFeeCents,
+          successFeeBps: tenants.successFeeBps,
+          billingCycleAnchorDay: tenants.billingCycleAnchorDay,
           recoveryContactCooldownMinutes: tenants.recoveryContactCooldownMinutes,
           recoveryContactMaxAttemptsPerDay: tenants.recoveryContactMaxAttemptsPerDay,
           recoveryChannelMode: tenants.recoveryChannelMode,
           webhookProviderPreferred: tenants.webhookProviderPreferred,
+          integrationConfigs: tenants.integrationConfigs,
         });
 
       if (!row) return reply.status(404).send({ ok: false, error: "tenant_not_found" });
-      return reply.status(200).send(serializeTenantSettings(row));
+      return reply.status(200).send(serializeTenantSettings(row, { includeProviderConfigs: true }));
     },
   );
 

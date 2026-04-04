@@ -114,7 +114,7 @@ Todos os cards: Superfície `bg-[background]`, borda sutil, `rounded-[2rem]`, dr
 - Conteúdo do card: Número do passo (monospace), título (heading font), 2 linhas de descrição. Derive tudo isso do propósito da marca do usuário.
 
 ### F. MEMBERSHIP / PRICING (Assinatura / Preços)
-- Grade de preços com três níveis. Nomes dos cards: "Essencial", "Performance", "Enterprise" (ajuste para alinhar à marca).
+- Grade de preços com três níveis. Nomes dos cards: **Essencial**, **Growth**, **Scale** (alinhado à LP do produto).
 - **O card do meio se destaca:** Fundo com a cor primária e um botão CTA com a cor de acento. Escala levemente maior ou com uma borda acentuada (`ring`).
 - Se preços não se aplicarem, converta isso em uma seção "Começar" (Get Started) com um único CTA grande.
 

@@ -62,9 +62,10 @@ function safeEq(a: string, b: string): boolean {
 export function verifyHotmartWebhook(
   headers: IncomingHttpHeaders,
   body: unknown,
+  credentials?: { hottok?: string | null; secret?: string | null },
 ): { ok: true } | { ok: false; reason: string } {
-  const expectedHottok = process.env.HOTMART_HOTTOK?.trim();
-  const expectedSecret = process.env.HOTMART_WEBHOOK_SECRET?.trim();
+  const expectedHottok = credentials?.hottok?.trim() || process.env.HOTMART_HOTTOK?.trim();
+  const expectedSecret = credentials?.secret?.trim() || process.env.HOTMART_WEBHOOK_SECRET?.trim();
 
   if (!expectedHottok && !expectedSecret) {
     return { ok: false, reason: "hotmart_signature_not_configured" };

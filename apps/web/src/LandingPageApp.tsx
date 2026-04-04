@@ -100,7 +100,7 @@ export function LandingPageApp() {
   const [averageTicket, setAverageTicket] = useState(297);
   const [lossRate, setLossRate] = useState(12);
   const [recoveryRate, setRecoveryRate] = useState(28);
-  const [toolCost, setToolCost] = useState(997);
+  const [toolCost, setToolCost] = useState(497);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {

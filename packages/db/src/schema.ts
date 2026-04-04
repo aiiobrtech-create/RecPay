@@ -10,6 +10,20 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export type TenantIntegrationProvider = "hotmart" | "kiwify" | "hubla" | "generic";
+
+export type TenantIntegrationConfig = {
+  enabled: boolean;
+  apiKey: string | null;
+  webhookToken: string | null;
+  endpointUrl: string | null;
+  updatedAt: string | null;
+};
+
+export type TenantIntegrationConfigs = Partial<
+  Record<TenantIntegrationProvider, TenantIntegrationConfig | null>
+>;
+
 export const membershipRoleEnum = pgEnum("membership_role", [
   "owner",
   "admin",
@@ -28,6 +42,27 @@ export const recoveryAttemptStatusEnum = pgEnum("recovery_attempt_status", [
   "scheduled",
   "simulated_sent",
   "sent",
+  "failed",
+]);
+
+export const billingEventStatusEnum = pgEnum("billing_event_status", [
+  "billable",
+  "billed",
+  "reversed",
+  "ignored",
+  "disputed",
+]);
+
+export const billingStatementStatusEnum = pgEnum("billing_statement_status", [
+  "draft",
+  "finalized",
+  "paid",
+  "payment_failed",
+]);
+
+export const chargeAttemptStatusEnum = pgEnum("charge_attempt_status", [
+  "pending",
+  "paid",
   "failed",
 ]);
 
@@ -50,6 +85,8 @@ export const tenants = pgTable(
     planMonthlyEventsLimit: integer("plan_monthly_events_limit"),
     /** Limite mensal de tentativas de recuperação por tenant (null = sem limite). */
     planMonthlyRecoveryLimit: integer("plan_monthly_recovery_limit"),
+    /** Plano comercial (metadata Stripe `re_plan`): essential | growth | scale — opcional; limites numéricos são a fonte de enforcement. */
+    billingPlan: text("billing_plan"),
     /** Janela de cooldown por contato (minutos) para evitar spam. */
     recoveryContactCooldownMinutes: integer("recovery_contact_cooldown_minutes"),
     /** Máximo de tentativas por contato em 24h. */
@@ -58,8 +95,14 @@ export const tenants = pgTable(
     recoveryChannelMode: text("recovery_channel_mode"),
     /** Provedor webhook preferencial selecionado pelo cliente no dashboard. */
     webhookProviderPreferred: text("webhook_provider_preferred"),
+    integrationConfigs: jsonb("integration_configs").$type<TenantIntegrationConfigs | null>(),
     /** Preenchido ao provisionar conta via Stripe Checkout (webhook); idempotência por sessão. */
     stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeDefaultPaymentMethodId: text("stripe_default_payment_method_id"),
+    monthlyFeeCents: integer("monthly_fee_cents").notNull().default(0),
+    successFeeBps: integer("success_fee_bps").notNull().default(500),
+    billingCycleAnchorDay: integer("billing_cycle_anchor_day").notNull().default(1),
   },
   (t) => [unique("tenants_stripe_checkout_session_id_unique").on(t.stripeCheckoutSessionId)],
 );
@@ -221,3 +264,67 @@ export const conversionAttributions = pgTable(
     unique("conversion_attributions_conversion_event_unique").on(t.conversionEventId),
   ],
 );
+
+export const billingStatements = pgTable(
+  "billing_statements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    recoveredTotalCents: integer("recovered_total_cents").notNull().default(0),
+    commissionTotalCents: integer("commission_total_cents").notNull().default(0),
+    monthlyFeeCents: integer("monthly_fee_cents").notNull().default(0),
+    grandTotalCents: integer("grand_total_cents").notNull().default(0),
+    status: billingStatementStatusEnum("status").notNull().default("draft"),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+    finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+    chargedAt: timestamp("charged_at", { withTimezone: true }),
+  },
+  (t) => [unique("billing_statements_period_unique").on(t.tenantId, t.periodStart, t.periodEnd)],
+);
+
+export const billingEvents = pgTable(
+  "billing_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    sourceEventId: uuid("source_event_id").references(() => events.id, { onDelete: "set null" }),
+    externalReference: text("external_reference").notNull(),
+    debtorReference: text("debtor_reference"),
+    recoveredAmountCents: integer("recovered_amount_cents").notNull(),
+    currency: text("currency").notNull().default("BRL"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    commissionRateBps: integer("commission_rate_bps").notNull(),
+    commissionAmountCents: integer("commission_amount_cents").notNull(),
+    status: billingEventStatusEnum("status").notNull().default("billable"),
+    billingStatementId: uuid("billing_statement_id").references(() => billingStatements.id, {
+      onDelete: "set null",
+    }),
+    reversalOfBillingEventId: uuid("reversal_of_billing_event_id"),
+  },
+  (t) => [
+    unique("billing_events_source_event_unique").on(t.sourceEventId),
+    unique("billing_events_tenant_external_reference_unique").on(t.tenantId, t.externalReference),
+  ],
+);
+
+export const chargeAttempts = pgTable("charge_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  billingStatementId: uuid("billing_statement_id")
+    .notNull()
+    .references(() => billingStatements.id, { onDelete: "cascade" }),
+  paymentGateway: text("payment_gateway").notNull(),
+  externalChargeId: text("external_charge_id"),
+  amountCents: integer("amount_cents").notNull(),
+  status: chargeAttemptStatusEnum("status").notNull().default("pending"),
+  failureReason: text("failure_reason"),
+  attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+});

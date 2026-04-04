@@ -116,45 +116,59 @@ Webhook Receiver → Event Processor → Decision Engine → Action Layer → Tr
 
 ## 💎 Estrutura
 
-Plano mensal + % sobre valor recuperado
+Mensalidade recorrente (e opção anual com desconto na LP). Modelo **mensal + % sobre valor recuperado** pode ser adotado como evolução comercial; ver `docs/PRECIFICACAO.md`.
+
+**Referência pública:** planos e entregáveis na landing (`recovery-engine`), espelhados em `docs/PRECIFICACAO.md`.
 
 ---
 
-## 💰 Planos sugeridos
+## 💰 Planos (alinhados à LP)
 
-### 🟢 Starter
-- R$97/mês
-- 12% recuperação
-- até R$5k
+### Essencial — R$ 197/mês
 
-### 🔵 Pro
-- R$197/mês
-- 10% recuperação
-- até R$20k
+*Para estruturar recuperação com volume moderado.*
 
-### 🟣 Scale
-- R$497/mês
-- 7% recuperação
-- ilimitado
+- Até 100 recuperações/mês
+- Webhooks no limite do plano
+- Painel e métricas
+- Suporte por e-mail
 
-### 🏆 Enterprise
-- custom
-- % reduzido
-- suporte dedicado
+### Growth — R$ 497/mês
+
+*O equilíbrio entre escala e custo — o mais escolhido.*
+
+- Até 300 recuperações/mês
+- Mais eventos que o Essencial
+- Retry + WhatsApp
+- API e webhook com token
+- Suporte prioritário
+
+### Scale — R$ 997/mês
+
+*Volume alto, multi-tenant e requisitos enterprise.*
+
+- Limites e excedente no contrato
+- Pacote fechado com o comercial
+- Times e permissões (quem vê o quê)
+- SLA e onboarding
+- Customer success
 
 ---
 
 ## ⚙️ Funcionamento da cobrança
 
 Durante o mês:
-- sistema acumula valor recuperado
 
-No fechamento:
+- sistema pode acumular valor recuperado (atribuído) para relatório e, se houver modelo híbrido, para faturamento variável.
+
+No fechamento (se houver % sobre recuperação):
+
 - mensalidade + % sobre recuperação
 
-Exemplo:
-- recuperado: R$8.000
-- cobrança: R$197 + R$800
+Exemplo ilustrativo:
+
+- recuperado: R$ 8.000
+- cobrança: R$ 197 (mensalidade do tier) + eventual % sobre recuperação conforme contrato
 
 ---
 

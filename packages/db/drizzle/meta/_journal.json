@@ -57,6 +57,13 @@
       "when": 1775261070381,
       "tag": "0007_wakeful_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775272651704,
+      "tag": "0008_milky_tinkerer",
+      "breakpoints": true
     }
   ]
 }

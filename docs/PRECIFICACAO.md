@@ -2,7 +2,52 @@
 
 Documento de apoio com **pesquisa de mercado**, **lógica de preços** e **checagem de vendibilidade** dos planos. Complementa `PROJETO.md` (produto e regras técnicas), sem substituir definição fiscal/contábil.
 
-**Valores atuais na LP** (`recovery-engine`): Essencial **R$ 497**, Growth **R$ 997**, Scale **R$ 1.997** (mensal); anual com desconto de **20%** sobre o total vs. 12× mensalidades.
+**Valores atuais na LP** (`recovery-engine`): Essencial **R$ 197**, Growth **R$ 497**, Scale **R$ 997** (mensal); anual com desconto de **20%** sobre o total vs. 12× mensalidades.
+
+**Fonte canônica de copy comercial:** a seção de planos na LP (`recovery-engine`). Abaixo, espelho das **descrições** e **entregáveis** exibidos na página (para docs, vendas e consistência interna).
+
+### Planos e entregáveis (espelho da LP)
+
+| Plano | Mensal | Descrição na LP |
+|-------|--------|-----------------|
+| Essencial | R$ 197 | Para estruturar recuperação com volume moderado. |
+| Growth | R$ 497 | O equilíbrio entre escala e custo — o mais escolhido. |
+| Scale | R$ 997 | Volume alto, multi-tenant e requisitos enterprise. |
+
+**Essencial — entregáveis**
+
+- Até 100 recuperações/mês
+- Webhooks no limite do plano
+- Painel e métricas
+- Suporte por e-mail
+
+**Growth — entregáveis**
+
+- Até 300 recuperações/mês
+- Mais eventos que o Essencial
+- Retry + WhatsApp
+- API e webhook com token
+- Suporte prioritário
+
+**Scale — entregáveis**
+
+- Limites e excedente no contrato
+- Pacote fechado com o comercial
+- Times e permissões (quem vê o quê)
+- SLA e onboarding
+- Customer success
+
+### Limites técnicos (banco e motor)
+
+Colunas em `tenants`: `plan_monthly_events_limit`, `plan_monthly_recovery_limit`, opcionalmente `billing_plan` (`essential` \| `growth` \| `scale`). Os números abaixo são os **padrões** usados quando o Stripe envia `re_plan` nos metadados (ou equivalente no Price); `null` = sem teto técnico (tier Scale).
+
+| `billing_plan` | Eventos webhook / mês | Recuperações / mês |
+|----------------|-------------------------|---------------------|
+| `essential` | 5.000 | 100 |
+| `growth` | 15.000 | 300 |
+| `scale` | null | null |
+
+Fallback do provisionamento sem metadata de plano nem variáveis de ambiente: mesmo patamar do **Essencial** (100 / 5.000). Constantes em `@re/core` (`plan-limits`).
 
 ---
 
@@ -71,9 +116,9 @@ Quanto o cliente precisaria **recuperar por mês** para a mensalidade equivaler 
 
 | Mensalidade | ~8% implícito | ~10% implícito |
 |-------------|---------------|----------------|
+| R$ 197      | ~R$ 2,5 mil   | ~R$ 2,0 mil    |
 | R$ 497      | ~R$ 6,2 mil   | ~R$ 5,0 mil    |
 | R$ 997      | ~R$ 12,5 mil  | ~R$ 10,0 mil   |
-| R$ 1.997    | ~R$ 25,0 mil  | ~R$ 20,0 mil   |
 
 **Uso:** se o ICP típico **não** consegue enxergar **recuperação atribuída** nessa ordem, ou o discurso de valor está fraco, ou o tier/preço não combina com o segmento.
 
@@ -87,7 +132,7 @@ Conceito para **simulações** na LP (sem afirmar taxa única por cliente):
 
 Nem todo vazamento vira recuperação; serve para dimensionar **dor** compatível com a pesquisa de mercado.
 
-**Exemplo ilustrativo:** GMV **R$ 100 mil/mês** → vazamento conceitual **R$ 15 mil–25 mil/mês**. Se a ferramenta ajudar a converter **10–20%** desse vazamento, recuperado **R$ 1,5 mil–5 mil/mês** — faixa onde **R$ 497** pode ser narrado com mais facilidade que **R$ 997**, dependendo do caso.
+**Exemplo ilustrativo:** GMV **R$ 100 mil/mês** → vazamento conceitual **R$ 15 mil–25 mil/mês**. Se a ferramenta ajudar a converter **10–20%** desse vazamento, recuperado **R$ 1,5 mil–5 mil/mês** — faixa onde **R$ 197** (entrada) ou **R$ 497** (Growth) podem ser narrados conforme o segmento.
 
 ---
 
@@ -108,7 +153,7 @@ Nem todo vazamento vira recuperação; serve para dimensionar **dor** compatíve
 1. **ICP certo:** infoprodutor (ou operação) com **volume e ticket** que gerem **falha/abandono relevante em valor** (tipicamente **vários milhares de reais por mês** “na mesa”), não apenas “quer testar”.
 2. **Prova de valor:** problema grande (faixas de mercado) + o que o produto faz + **limites do plano**; sem isso, preço premium **parece alto**.
 
-**Onde costuma falhar:** base muito pequena ou sem dor clara — até **R$ 497** pode parecer cara. Mitigação: **qualificação**, piloto com desconto contra compromisso de métricas, ou entrada mais baixa só se fizer sentido estratégico.
+**Onde costuma falhar:** base muito pequena ou sem dor clara — até **R$ 197** pode parecer cara se não houver dor nem prova de valor. Mitigação: **qualificação**, piloto com desconto contra compromisso de métricas, ou upsell de tier quando fizer sentido.
 
 **Resumo:** para o **segmento certo** e **história de ROI**, os valores são **compatíveis com SaaS B2B de receita**; para o mercado amplo, **nem sempre** — o gargalo costuma ser **encaixe e demonstração de valor**, não só o número.
 

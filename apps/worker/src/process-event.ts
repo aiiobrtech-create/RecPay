@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { isRecoverySalesTriggerEventType, TemplateContentGenerator } from "@re/core";
-import { events, recoveryAttempts, sql, tenants, type DbClient } from "@re/db";
+import { billingEvents, events, recoveryAttempts, sql, tenants, type DbClient } from "@re/db";
 import { sendEvolutionMessage } from "@re/integrations";
 import {
   buildMessageContext,
@@ -40,6 +40,56 @@ function pickNumber(obj: Record<string, unknown>, keys: string[]): number | unde
     }
   }
   return undefined;
+}
+
+async function maybeCreateBillingEvent(
+  db: DbClient,
+  row: typeof events.$inferSelect,
+  canonical: Record<string, unknown>,
+): Promise<void> {
+  const eventType = readCanonicalEventType(canonical);
+  if (eventType !== "payment_approved") return;
+
+  const order = canonicalOrder(canonical);
+  const customer = canonicalCustomer(canonical);
+  const externalReference =
+    pickString(order, ["externalId", "id", "orderId", "order_id"]) ?? row.id;
+  const recoveredAmountCents = centsFromAmount(
+    pickNumber(order, ["amountCents", "amount", "value", "total"]),
+  );
+  if (recoveredAmountCents <= 0) return;
+
+  const [tenant] = await db
+    .select({ successFeeBps: tenants.successFeeBps })
+    .from(tenants)
+    .where(eq(tenants.id, row.tenantId))
+    .limit(1);
+  const commissionRateBps = tenant?.successFeeBps ?? 500;
+  const occurredAtRaw = canonical.occurredAt;
+  const occurredAt =
+    typeof occurredAtRaw === "string" && !Number.isNaN(new Date(occurredAtRaw).getTime())
+      ? new Date(occurredAtRaw)
+      : row.createdAt;
+
+  await db
+    .insert(billingEvents)
+    .values({
+      tenantId: row.tenantId,
+      sourceEventId: row.id,
+      externalReference,
+      debtorReference:
+        pickString(customer, ["externalId", "id", "email", "phone", "phoneE164", "phone_e164"]) ??
+        null,
+      recoveredAmountCents,
+      currency: pickString(order, ["currency", "currency_code"]) ?? "BRL",
+      occurredAt,
+      commissionRateBps,
+      commissionAmountCents: Math.round((recoveredAmountCents * commissionRateBps) / 10_000),
+      status: "billable",
+    })
+    .onConflictDoNothing({
+      target: [billingEvents.tenantId, billingEvents.externalReference],
+    });
 }
 
 function centsFromAmount(amount: number | undefined): number {
@@ -622,6 +672,7 @@ export async function processEventById(db: DbClient, eventId: string): Promise<v
       row.canonical && typeof row.canonical === "object" && !Array.isArray(row.canonical)
         ? (row.canonical as Record<string, unknown>)
         : normalizeCanonical(row);
+    await maybeCreateBillingEvent(db, row, canonical);
     const canonicalEventType = readCanonicalEventType(canonical);
     if (canonicalEventType === "payment_approved") {
       await maybeRecordConversionAttribution(
