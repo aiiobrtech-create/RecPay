@@ -102,7 +102,12 @@ const BENEFIT_ITEMS: {
   },
 ];
 
-const viewportEnter = { once: true, margin: '-48px' as const, amount: 0.12 as const };
+/**
+ * IntersectionObserver em mobile costuma falhar com margin negativa + amount alto:
+ * o bloco fica em `hidden` (opacity 0) e a página parece “em branco” até dar refresh.
+ * Margin positiva amplia a área de detecção; amount baixo exige menos pixels visíveis.
+ */
+const viewportEnter = { once: true, margin: '0px 0px 200px 0px' as const, amount: 0.01 as const };
 
 /** Provas sociais — depoimentos fictícios para demonstração de UI; métricas com linguagem de referência. */
 const SOCIAL_STATS = [
@@ -180,20 +185,25 @@ const PRICING_PLANS = [
   {
     name: 'Essencial',
     description: 'Para estruturar recuperação com volume moderado.',
-    monthlyPrice: 497,
-    features: ['Até 2.000 recuperações/mês', '1 domínio', 'Painel e métricas essenciais', 'Suporte por e-mail'],
+    monthlyPrice: 197,
+    features: [
+      'Até 100 recuperações/mês',
+      'Webhooks no limite do plano',
+      'Painel e métricas',
+      'Suporte por e-mail',
+    ],
     cta: 'Assinar Essencial',
     highlighted: false,
   },
   {
     name: 'Growth',
     description: 'O equilíbrio entre escala e custo — o mais escolhido.',
-    monthlyPrice: 997,
+    monthlyPrice: 497,
     features: [
-      'Até 10.000 recuperações/mês',
-      'Até 5 domínios',
-      'Retry inteligente e recuperação via WhatsApp',
-      'API e webhooks',
+      'Até 300 recuperações/mês',
+      'Mais eventos que o Essencial',
+      'Retry + WhatsApp',
+      'API e webhook com token',
       'Suporte prioritário',
     ],
     cta: 'Assinar Growth',
@@ -202,12 +212,12 @@ const PRICING_PLANS = [
   {
     name: 'Scale',
     description: 'Volume alto, multi-tenant e requisitos enterprise.',
-    monthlyPrice: 1997,
+    monthlyPrice: 997,
     features: [
-      'Recuperações com franquia ampliada e overage contratual',
-      'Domínios e operações ilimitados',
-      'Multi-tenant e permissões',
-      'SLA e onboarding dedicado',
+      'Limites e excedente no contrato',
+      'Pacote fechado com o comercial',
+      'Times e permissões (quem vê o quê)',
+      'SLA e onboarding',
       'Customer success',
     ],
     cta: 'Falar com vendas',
@@ -225,7 +235,7 @@ function yearlyCharge(monthlyList: number) {
 
 function ConversionRateCounter({ rate, className }: { rate: number; className: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: '-10% 0px', amount: 0.35 });
+  const isInView = useInView(ref, { once: true, margin: '0px 0px 120px 0px', amount: 0.01 });
   const reduce = useReducedMotion();
   const [display, setDisplay] = useState(0);
 
@@ -355,7 +365,7 @@ function HeroDashboardMockup({
       ref={cardRef}
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, amount: 0.25 }}
+      viewport={viewportEnter}
       variants={enter.item}
       onPointerMove={onCardPointer}
       onPointerLeave={onCardLeave}
@@ -476,7 +486,7 @@ function BenefitsSection({
         className="relative z-10 mx-auto max-w-7xl"
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, margin: '-80px', amount: 0.2 }}
+        viewport={viewportEnter}
         variants={enter.stagger}
       >
         <motion.div className="mb-10 sm:mb-14 lg:mb-16" variants={enter.item}>
@@ -901,29 +911,34 @@ const Navbar = () => {
   );
 };
 
-/** Fração do vazamento que vira recuperação no cenário ilustrativo (~10–20% do montante perdido; ver docs/PRECIFICACAO.md). */
-const SIM_RECUPERACAO_FRAC = 0.15;
-/** Custo mensal de referência do produto para estimar multiplicador (mesma ordem do apps/web). */
-const SIM_CUSTO_FERRAMENTA_MENSAL = 997;
+/**
+ * Fração da perda no checkout que vira recuperação no cenário ilustrativo.
+ * Alinhado à faixa ~10–20% do vazamento em materiais de mercado (ver docs/PRECIFICACAO.md) — não é teto nem garantia.
+ */
+const SIM_RECUPERACAO_FRAC = 0.2;
 
 const formatBRL = (n: number) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+/** Cenário inicial alinhado a infoprodutor: poucas dezenas de vendas/mês e ticket médio típico (receita ≈ dezenas de mil R$). */
+const SIM_DEFAULT_VENDAS = 45;
+const SIM_DEFAULT_TICKET = 397;
+
 const Simulator = () => {
   const enter = useEnterVariants();
-  const [vendas, setVendas] = useState(2200);
-  const [ticket, setTicket] = useState(297);
+  const [vendas, setVendas] = useState(SIM_DEFAULT_VENDAS);
+  const [ticket, setTicket] = useState(SIM_DEFAULT_TICKET);
   const [taxaFalha, setTaxaFalha] = useState(22);
 
   const metrics = useMemo(() => {
     const receitaMensal = vendas * ticket;
     const perdaMensal = receitaMensal * (taxaFalha / 100);
     const recuperacaoPotencial = perdaMensal * SIM_RECUPERACAO_FRAC;
-    const roiVezes = SIM_CUSTO_FERRAMENTA_MENSAL > 0 ? recuperacaoPotencial / SIM_CUSTO_FERRAMENTA_MENSAL : 0;
-    return { receitaMensal, perdaMensal, recuperacaoPotencial, roiVezes };
+    const recuperacaoAnualProjetada = recuperacaoPotencial * 12;
+    return { receitaMensal, perdaMensal, recuperacaoPotencial, recuperacaoAnualProjetada };
   }, [vendas, ticket, taxaFalha]);
 
-  const { receitaMensal, perdaMensal, recuperacaoPotencial, roiVezes } = metrics;
+  const { receitaMensal, perdaMensal, recuperacaoPotencial, recuperacaoAnualProjetada } = metrics;
 
   return (
     <section id="simulador" className="grid-lines bg-surface-container-low px-4 py-14 sm:px-6 sm:py-20 lg:py-24">
@@ -945,7 +960,7 @@ const Simulator = () => {
             Veja quanto dinheiro pode estar ficando para trás.
           </motion.h2>
           <motion.p variants={enter.item} className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant sm:mt-4 sm:text-base">
-            O destaque é a <strong className="text-on-surface font-headline">perda mensal</strong> no checkout (falha, abandono, PIX). A recuperação abaixo é um cenário conservador sobre esse montante.
+            O destaque é a <strong className="text-on-surface font-headline">perda mensal</strong> no checkout (falha, abandono, PIX). A recuperação abaixo usa uma faixa típica de conversão da perda em receita recuperada — o resultado real depende do seu funil e da operação.
           </motion.p>
         </motion.div>
 
@@ -960,6 +975,9 @@ const Simulator = () => {
             <p className="-mb-1 text-xs text-on-surface-variant sm:-mb-2 sm:text-sm">
               Receita bruta mensal estimada:{' '}
               <strong className="text-on-surface font-headline">R$ {formatBRL(receitaMensal)}</strong>
+              <span className="block mt-1 text-on-surface-variant/90">
+                (vendas × ticket — poucas vendas com ticket alto equivalem a muitas vendas baratas)
+              </span>
             </p>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -967,10 +985,13 @@ const Simulator = () => {
                 <span className="bg-primary/10 text-primary px-3 py-1 rounded-lg font-bold font-headline">{vendas.toLocaleString('pt-BR')}</span>
               </div>
               <input 
-                type="range" min="100" max="10000" step="100" value={vendas}
+                type="range" min="5" max="1200" step="5" value={vendas}
                 onChange={(e) => setVendas(Number(e.target.value))}
                 className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary"
               />
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Muitos criadores ficam entre <strong className="text-on-surface font-medium">dezenas</strong> de vendas por mês — ajuste para o seu caso.
+              </p>
             </div>
 
             <div className="flex flex-col gap-4">
@@ -1022,28 +1043,25 @@ const Simulator = () => {
 
               <div className="mt-6 border-t border-white/20 pt-6 sm:mt-8 sm:pt-8">
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-80 font-headline sm:text-xs">
-                  Recuperação potencial ({Math.round(SIM_RECUPERACAO_FRAC * 100)}% sobre a perda)
+                  Quanto pode voltar para o caixa (mês)
                 </span>
-                <div className="text-2xl sm:text-3xl font-bold mt-2 tracking-tight font-headline tabular-nums">
+                <div className="mt-2 text-3xl font-bold tracking-tight font-headline tabular-nums sm:text-4xl lg:text-5xl">
                   R$ {formatBRL(recuperacaoPotencial)}
                 </div>
-                <p className="mt-2 text-xs opacity-75 max-w-sm">
-                  Ilustrativo: custo de referência do produto R$ {formatBRL(SIM_CUSTO_FERRAMENTA_MENSAL)}/mês → retorno de cerca de{' '}
-                  <strong>{roiVezes >= 10 ? roiVezes.toFixed(0) : roiVezes.toFixed(1)}×</strong> esse custo no cenário acima.
+                <p className="mt-2 text-xs opacity-80 max-w-md leading-relaxed">
+                  Cenário ilustrativo: {Math.round(SIM_RECUPERACAO_FRAC * 100)}% da perda acima — número orientativo; o real depende do funil e da operação.
                 </p>
-              </div>
-            </div>
-
-            <div className="relative z-[1] mt-6 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4">
-              <div className="rounded-xl bg-white/10 p-3 sm:p-4">
-                <div className="text-xs font-bold uppercase opacity-70 font-headline">Multiplicador (ref.)</div>
-                <div className="text-xl font-bold mt-1 font-headline tabular-nums">
-                  {roiVezes >= 10 ? `${roiVezes.toFixed(0)}×` : `${roiVezes.toFixed(1)}×`}
+                <div className="mt-6 rounded-xl bg-white/10 p-4 sm:p-5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 font-headline sm:text-xs">
+                    Projeção em 12 meses (mesmo cenário)
+                  </span>
+                  <div className="mt-2 text-xl font-bold font-headline tabular-nums sm:text-2xl">
+                    R$ {formatBRL(recuperacaoAnualProjetada)}
+                  </div>
+                  <p className="mt-1 text-[11px] opacity-75 leading-relaxed">
+                    Soma simples do valor mensal — para dimensionar impacto, não previsão contratual.
+                  </p>
                 </div>
-              </div>
-              <div className="rounded-xl bg-white/10 p-3 sm:p-4">
-                <div className="text-xs font-bold uppercase opacity-70 font-headline">Cenário</div>
-                <div className="text-xl font-bold mt-1 font-headline leading-snug">Conservador</div>
               </div>
             </div>
           </motion.div>
@@ -1221,15 +1239,15 @@ function PricingSection() {
                 className={cn(
                   'flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition-shadow sm:rounded-3xl sm:p-8',
                   plan.highlighted
-                    ? 'border-primary shadow-xl shadow-primary/15 ring-2 ring-primary/25 lg:scale-[1.02] lg:z-10'
+                    ? 'relative border-primary shadow-xl shadow-primary/15 ring-2 ring-primary/25 lg:scale-[1.02] lg:z-10'
                     : 'border-slate-200 hover:border-slate-300 hover:shadow-md',
                 )}
               >
-                {plan.highlighted && (
-                  <span className="mb-4 inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 font-headline text-xs font-bold uppercase tracking-wide text-primary">
+                {plan.highlighted ? (
+                  <span className="absolute right-5 top-5 z-10 inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 font-headline text-xs font-bold uppercase tracking-wide text-primary sm:right-8 sm:top-8">
                     Mais popular
                   </span>
-                )}
+                ) : null}
                 <h3 className="font-headline text-xl font-bold text-on-surface">{plan.name}</h3>
                 <p className="mt-2 min-h-[3rem] text-sm leading-relaxed text-on-surface-variant">{plan.description}</p>
 
