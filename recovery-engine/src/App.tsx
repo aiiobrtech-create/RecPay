@@ -1276,11 +1276,6 @@ function PricingSection() {
             );
           })}
         </motion.div>
-
-        <p className="mx-auto mt-10 max-w-2xl text-center text-xs text-on-surface-variant">
-          Valores ilustrativos para a LP; condições fiscais e contratuais aplicáveis. O plano anual aplica{' '}
-          <strong className="text-on-surface">20% de desconto</strong> sobre o total de 12 meses à vista em relação à soma de 12 mensalidades cheias.
-        </p>
       </div>
     </section>
   );
