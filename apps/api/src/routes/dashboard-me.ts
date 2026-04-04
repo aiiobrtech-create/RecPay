@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { memberships, tenants } from "@re/db";
+import { dashboardOperatorAccess, memberships, tenants } from "@re/db";
 import type { FastifyPluginAsync } from "fastify";
 import { getDb } from "../db.js";
 import { extractBearerToken, isDashboardAuthEnforced } from "../auth/dashboard-auth.js";
@@ -15,6 +15,9 @@ export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
         userId: null,
         email: null,
         tenants: [] as Array<{ id: string; name: string; role: string }>,
+        operationalAccess: {
+          canReviewRecoveryLinks: false,
+        },
       });
     }
 
@@ -38,7 +41,15 @@ export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(503).send({ ok: false, error: "database_unavailable" });
     }
 
-    await ensureUserHasTenantMembership(db, data.user);
+    const [operatorRow] = await db
+      .select({ userId: dashboardOperatorAccess.userId })
+      .from(dashboardOperatorAccess)
+      .where(eq(dashboardOperatorAccess.userId, data.user.id))
+      .limit(1);
+
+    if (!operatorRow) {
+      await ensureUserHasTenantMembership(db, data.user);
+    }
 
     const rows = await db
       .select({
@@ -57,6 +68,9 @@ export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
       userId: data.user.id,
       email: data.user.email ?? null,
       tenants: rows.map((r) => ({ id: r.id, name: r.name, role: r.role })),
+      operationalAccess: {
+        canReviewRecoveryLinks: Boolean(operatorRow),
+      },
     });
   });
 };

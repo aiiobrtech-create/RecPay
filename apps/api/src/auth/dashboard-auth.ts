@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { memberships, tenants } from "@re/db";
+import { dashboardOperatorAccess, memberships, tenants } from "@re/db";
 import { getDb } from "../db.js";
 import { ensureUserHasTenantMembership } from "../lib/first-login-provision.js";
 import { getSupabaseAdmin } from "../lib/supabase-admin.js";
@@ -25,6 +25,74 @@ export function isAdminTokenAuthorized(req: FastifyRequest): boolean {
   return Boolean(provided && provided === expected);
 }
 
+type DashboardAuthenticatedUser = {
+  id: string;
+  email: string | null;
+};
+
+export function formatDashboardActorLabel(user: DashboardAuthenticatedUser): string {
+  const email = user.email?.trim();
+  return email || user.id;
+}
+
+async function hasOperationalAccess(userId: string): Promise<boolean> {
+  const db = getDb();
+  if (!db) return false;
+  const [row] = await db
+    .select({ userId: dashboardOperatorAccess.userId })
+    .from(dashboardOperatorAccess)
+    .where(eq(dashboardOperatorAccess.userId, userId))
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function authenticateDashboardUser(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  options?: { skipAutoProvision?: boolean },
+): Promise<{ user: DashboardAuthenticatedUser; operationalAccess: boolean } | null> {
+  const token = extractBearerToken(req);
+  if (!token) {
+    await reply.status(401).send({ ok: false, error: "unauthorized" });
+    return null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    await reply.status(503).send({ ok: false, error: "auth_not_configured" });
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    await reply.status(401).send({ ok: false, error: "invalid_token" });
+    return null;
+  }
+
+  const db = getDb();
+  if (!db) {
+    await reply.status(503).send({ ok: false, error: "database_unavailable" });
+    return null;
+  }
+
+  const operationalAccess = await hasOperationalAccess(data.user.id);
+  if (!options?.skipAutoProvision && !operationalAccess) {
+    await ensureUserHasTenantMembership(db, data.user);
+  }
+
+  req.dashboardUserId = data.user.id;
+  req.dashboardUserEmail = data.user.email ?? null;
+  req.dashboardHasOperationalAccess = operationalAccess;
+
+  return {
+    user: {
+      id: data.user.id,
+      email: data.user.email ?? null,
+    },
+    operationalAccess,
+  };
+}
+
 /**
  * Acesso a rotas `/admin/tenants/:tenantId/*` no painel: sessão Supabase + membership,
  * ou `x-admin-token` (interno).
@@ -44,34 +112,18 @@ export async function assertTenantManagementAccess(
     return true;
   }
 
-  const token = extractBearerToken(req);
-  if (!token) {
-    await reply.status(401).send({ ok: false, error: "unauthorized" });
-    return false;
-  }
-
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    await reply.status(503).send({ ok: false, error: "auth_not_configured" });
-    return false;
-  }
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
-    await reply.status(401).send({ ok: false, error: "invalid_token" });
-    return false;
-  }
+  const auth = await authenticateDashboardUser(req, reply);
+  if (!auth) return false;
 
   const db = getDb();
   if (!db) {
     await reply.status(503).send({ ok: false, error: "database_unavailable" });
     return false;
   }
-
   const [m] = await db
     .select({ role: memberships.role })
     .from(memberships)
-    .where(and(eq(memberships.userId, data.user.id), eq(memberships.tenantId, tenantId)))
+    .where(and(eq(memberships.userId, auth.user.id), eq(memberships.tenantId, tenantId)))
     .limit(1);
 
   if (!m) {
@@ -87,6 +139,21 @@ export async function assertTenantManagementAccess(
   req.tenantMembershipRole = m.role;
   req.tenantAccessViaAdminToken = false;
   return true;
+}
+
+export async function assertOperationalAccess(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<{ user: DashboardAuthenticatedUser } | null> {
+  req.dashboardHasOperationalAccess = false;
+  const auth = await authenticateDashboardUser(req, reply, { skipAutoProvision: true });
+  if (!auth) return null;
+  if (!auth.operationalAccess) {
+    await reply.status(403).send({ ok: false, error: "insufficient_operational_access" });
+    return null;
+  }
+  req.dashboardHasOperationalAccess = true;
+  return { user: auth.user };
 }
 
 export function extractBearerToken(req: FastifyRequest): string | null {
@@ -137,25 +204,14 @@ export async function dashboardTenantPreHandler(req: FastifyRequest, reply: Fast
     return;
   }
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    await reply.status(503).send({ ok: false, error: "auth_not_configured" });
-    return;
-  }
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
-    await reply.status(401).send({ ok: false, error: "invalid_token" });
-    return;
-  }
+  const auth = await authenticateDashboardUser(req, reply);
+  if (!auth) return;
 
   const db = getDb();
   if (!db) {
     await reply.status(503).send({ ok: false, error: "database_unavailable" });
     return;
   }
-
-  await ensureUserHasTenantMembership(db, data.user);
 
   const rows = await db
     .select({
@@ -164,7 +220,7 @@ export async function dashboardTenantPreHandler(req: FastifyRequest, reply: Fast
     })
     .from(memberships)
     .innerJoin(tenants, eq(memberships.tenantId, tenants.id))
-    .where(eq(memberships.userId, data.user.id));
+    .where(eq(memberships.userId, auth.user.id));
 
   if (rows.length === 0) {
     await reply.status(403).send({ ok: false, error: "no_tenant_membership" });

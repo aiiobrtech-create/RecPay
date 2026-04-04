@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import { describe, expect, it } from "vitest";
-import { resolveDashboardTenantId } from "./dashboard-auth.js";
+import { formatDashboardActorLabel, resolveDashboardTenantId } from "./dashboard-auth.js";
 
 describe("resolveDashboardTenantId", () => {
   it("uses effective tenant from auth when query omitted", () => {
@@ -30,5 +30,25 @@ describe("resolveDashboardTenantId", () => {
     const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const req = { dashboardEffectiveTenantId: id } as FastifyRequest;
     expect(resolveDashboardTenantId(req, id)).toEqual({ ok: true, tenantId: id });
+  });
+});
+
+describe("formatDashboardActorLabel", () => {
+  it("prefers email when present", () => {
+    expect(
+      formatDashboardActorLabel({
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        email: "ops@recpay.com.br",
+      }),
+    ).toBe("ops@recpay.com.br");
+  });
+
+  it("falls back to user id when email is missing", () => {
+    expect(
+      formatDashboardActorLabel({
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        email: null,
+      }),
+    ).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
   });
 });
