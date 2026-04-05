@@ -407,14 +407,15 @@ function providerConfigHasRequiredFields(provider: ProviderKey, config: Provider
   const apiKey = config.apiKey.trim();
   const webhookToken = config.webhookToken.trim();
   const hasEndpoint = Boolean(config.endpointUrl.trim());
+  const hasApiKey = Boolean(apiKey);
+  const hasWebhookToken = Boolean(webhookToken);
   if (provider === "hotmart") {
     return hasEndpoint;
   }
-  const hasWebhookToken = Boolean(webhookToken && webhookToken !== REDACTED_PROVIDER_SECRET);
   if (provider === "kiwify") {
     return Boolean(hasWebhookToken && hasEndpoint);
   }
-  return Boolean(apiKey && hasWebhookToken && hasEndpoint && apiKey !== REDACTED_PROVIDER_SECRET);
+  return Boolean(hasApiKey && hasWebhookToken && hasEndpoint);
 }
 
 function providerFieldCopy(provider: ProviderKey): ProviderFieldCopy {
