@@ -88,6 +88,23 @@ type SerializableProviderConfig = {
   endpointUrl: string | null;
 };
 
+function pickCurrentWebhookUrl(
+  configs: TenantIntegrationConfigs | null | undefined,
+  preferredProvider?: string | null,
+): string | null {
+  const normalized = normalizeTenantIntegrationConfigs(configs);
+  const providers: TenantIntegrationProvider[] = ["hotmart", "kiwify", "hubla", "generic"];
+  if (preferredProvider && providers.includes(preferredProvider as TenantIntegrationProvider)) {
+    const preferredUrl = normalized[preferredProvider as TenantIntegrationProvider]?.endpointUrl?.trim();
+    if (preferredUrl) return preferredUrl;
+  }
+  for (const provider of providers) {
+    const url = normalized[provider]?.endpointUrl?.trim();
+    if (url) return url;
+  }
+  return null;
+}
+
 function serializeProviderConfigs(
   configs: TenantIntegrationConfigs | null | undefined,
   options?: { includeSecretValues?: boolean },
@@ -151,6 +168,7 @@ function serializeTenantSettings(row: {
       integrations: {
         recoveryChannelMode: row.recoveryChannelMode,
         webhookProviderPreferred: row.webhookProviderPreferred,
+        currentWebhookUrl: pickCurrentWebhookUrl(row.integrationConfigs, row.webhookProviderPreferred),
         providerConfigs: integrationConfigs,
       },
     },
@@ -596,7 +614,11 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const [tenant] = await db
-        .select({ id: tenants.id, webhookProviderPreferred: tenants.webhookProviderPreferred })
+        .select({
+          id: tenants.id,
+          webhookProviderPreferred: tenants.webhookProviderPreferred,
+          integrationConfigs: tenants.integrationConfigs,
+        })
         .from(tenants)
         .where(eq(tenants.id, tenantId))
         .limit(1);
@@ -609,6 +631,22 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
 
       const provider = tenant.webhookProviderPreferred ?? "generic";
       const webhookUrl = `${webhookBaseUrl()}/webhooks/ingress/${tokenPlain}?provider=${provider}`;
+      const nextConfigs = normalizeTenantIntegrationConfigs(tenant.integrationConfigs);
+      for (const providerKey of ["hotmart", "kiwify", "hubla", "generic"] as const) {
+        const currentConfig = nextConfigs[providerKey];
+        nextConfigs[providerKey] = {
+          enabled: currentConfig?.enabled ?? false,
+          apiKey: currentConfig?.apiKey ?? null,
+          webhookToken: currentConfig?.webhookToken ?? null,
+          endpointUrl: webhookUrl,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      await db
+        .update(tenants)
+        .set({ integrationConfigs: nextConfigs })
+        .where(eq(tenants.id, tenantId));
+
       return reply.status(201).send({
         ok: true,
         tenantId,

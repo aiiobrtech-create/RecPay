@@ -1809,6 +1809,7 @@ export function App() {
               };
               integrations?: {
                 webhookProviderPreferred?: WebhookProvider | null;
+                currentWebhookUrl?: string | null;
                 providerConfigs?: Partial<Record<ProviderKey, Partial<ProviderConfig> | null>>;
               };
             };
@@ -1828,13 +1829,21 @@ export function App() {
         webhookProviderPreferred: payload.settings.integrations?.webhookProviderPreferred ?? null,
       });
       const configs = payload.settings.integrations?.providerConfigs ?? {};
+      const persistedWebhookUrl =
+        payload.settings.integrations?.currentWebhookUrl ??
+        configs.hotmart?.endpointUrl ??
+        configs.kiwify?.endpointUrl ??
+        configs.hubla?.endpointUrl ??
+        configs.generic?.endpointUrl ??
+        "";
+      setWebhookUrl(persistedWebhookUrl);
       const nextConfigs: Record<ProviderKey, ProviderConfig | null> = {
         hotmart: configs.hotmart
           ? {
               enabled: Boolean(configs.hotmart.enabled),
               apiKey: configs.hotmart.apiKey ?? "",
               webhookToken: configs.hotmart.webhookToken ?? "",
-              endpointUrl: configs.hotmart.endpointUrl ?? webhookUrl ?? "",
+              endpointUrl: configs.hotmart.endpointUrl ?? persistedWebhookUrl,
             }
           : null,
         kiwify: configs.kiwify
@@ -1842,7 +1851,7 @@ export function App() {
               enabled: Boolean(configs.kiwify.enabled),
               apiKey: configs.kiwify.apiKey ?? "",
               webhookToken: configs.kiwify.webhookToken ?? "",
-              endpointUrl: configs.kiwify.endpointUrl ?? webhookUrl ?? "",
+              endpointUrl: configs.kiwify.endpointUrl ?? persistedWebhookUrl,
             }
           : null,
         hubla: configs.hubla
@@ -1850,7 +1859,7 @@ export function App() {
               enabled: Boolean(configs.hubla.enabled),
               apiKey: configs.hubla.apiKey ?? "",
               webhookToken: configs.hubla.webhookToken ?? "",
-              endpointUrl: configs.hubla.endpointUrl ?? webhookUrl ?? "",
+              endpointUrl: configs.hubla.endpointUrl ?? persistedWebhookUrl,
             }
           : null,
         generic: configs.generic
@@ -1858,7 +1867,7 @@ export function App() {
               enabled: Boolean(configs.generic.enabled),
               apiKey: configs.generic.apiKey ?? "",
               webhookToken: configs.generic.webhookToken ?? "",
-              endpointUrl: configs.generic.endpointUrl ?? webhookUrl ?? "",
+              endpointUrl: configs.generic.endpointUrl ?? persistedWebhookUrl,
             }
           : null,
       };
@@ -1929,11 +1938,57 @@ export function App() {
           providerConfigs: providerConfigsPayload,
         }),
       });
-      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null | undefined;
+      const payload = (await readResponseJson(response)) as
+        | {
+            ok?: boolean;
+            settings?: {
+              integrations?: {
+                currentWebhookUrl?: string | null;
+                providerConfigs?: Partial<Record<ProviderKey, Partial<ProviderConfig> | null>>;
+              };
+            };
+            error?: string;
+          }
+        | null
+        | undefined;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
-      setProviderConfigs(providerConfigsPayload);
+      const responseConfigs = payload.settings?.integrations?.providerConfigs ?? {};
+      const persistedWebhookUrl =
+        payload.settings?.integrations?.currentWebhookUrl ??
+        responseConfigs.hotmart?.endpointUrl ??
+        responseConfigs.kiwify?.endpointUrl ??
+        responseConfigs.hubla?.endpointUrl ??
+        responseConfigs.generic?.endpointUrl ??
+        webhookUrl;
+      setWebhookUrl(persistedWebhookUrl ?? "");
+      setProviderConfigs({
+        hotmart: providerConfigsPayload.hotmart
+          ? {
+              ...providerConfigsPayload.hotmart,
+              endpointUrl: responseConfigs.hotmart?.endpointUrl ?? providerConfigsPayload.hotmart.endpointUrl,
+            }
+          : null,
+        kiwify: providerConfigsPayload.kiwify
+          ? {
+              ...providerConfigsPayload.kiwify,
+              endpointUrl: responseConfigs.kiwify?.endpointUrl ?? providerConfigsPayload.kiwify.endpointUrl,
+            }
+          : null,
+        hubla: providerConfigsPayload.hubla
+          ? {
+              ...providerConfigsPayload.hubla,
+              endpointUrl: responseConfigs.hubla?.endpointUrl ?? providerConfigsPayload.hubla.endpointUrl,
+            }
+          : null,
+        generic: providerConfigsPayload.generic
+          ? {
+              ...providerConfigsPayload.generic,
+              endpointUrl: responseConfigs.generic?.endpointUrl ?? providerConfigsPayload.generic.endpointUrl,
+            }
+          : null,
+      });
       setEnabledProviders({
         hotmart: providerConfigsPayload.hotmart?.enabled ?? false,
         kiwify: providerConfigsPayload.kiwify?.enabled ?? false,
