@@ -562,6 +562,12 @@ export function App() {
   const attemptRangeRef = useRef<HTMLDivElement | null>(null);
   const [pageSize, setPageSize] = useState(10);
   const [submittedTenantId, setSubmittedTenantId] = useState(initialTenantId);
+  const attemptsTenantId = useMemo(() => {
+    const normalizedTenant = normalizeTenantInput(tenantId);
+    if (isUuidV4Like(normalizedTenant)) return normalizedTenant;
+    const normalizedSubmitted = normalizeTenantInput(submittedTenantId);
+    return isUuidV4Like(normalizedSubmitted) ? normalizedSubmitted : "";
+  }, [submittedTenantId, tenantId]);
   const [submittedFrom, setSubmittedFrom] = useState(() => {
     const range = last30DaysIso();
     return range.from;
@@ -1101,13 +1107,13 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     const loadSovereignRows = async () => {
-      if (!submittedTenantId.trim()) {
+      if (!attemptsTenantId.trim()) {
         setSovereignTxRows([]);
         return;
       }
       try {
         const query = new URLSearchParams({
-          tenantId: submittedTenantId,
+          tenantId: attemptsTenantId,
           from: submittedFrom,
           to: submittedTo,
           limit: "5",
@@ -1134,7 +1140,7 @@ export function App() {
           attemptsPayload.items.map(async (item) => {
             try {
               const eventResponse = await dashboardFetch(
-                `${baseUrl}/recovery-attempts/event/${item.eventId}?tenantId=${encodeURIComponent(submittedTenantId)}`,
+                `${baseUrl}/recovery-attempts/event/${item.eventId}?tenantId=${encodeURIComponent(attemptsTenantId)}`,
                 accessToken,
               );
               const eventPayload = (await readResponseJson(eventResponse)) as {
@@ -1189,19 +1195,19 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, submittedFrom, submittedTenantId, submittedTo, accessToken]);
+  }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
 
   useEffect(() => {
     let cancelled = false;
     const loadAttemptActions = async () => {
-      if (!submittedTenantId.trim()) {
+      if (!attemptsTenantId.trim()) {
         setAttemptActions([]);
         return;
       }
       setAttemptActionsLoading(true);
       try {
         const query = new URLSearchParams({
-          tenantId: submittedTenantId,
+          tenantId: attemptsTenantId,
           from: submittedFrom,
           to: submittedTo,
           limit: "100",
@@ -1262,12 +1268,12 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, submittedFrom, submittedTenantId, submittedTo, accessToken]);
+  }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
 
   useEffect(() => {
     let cancelled = false;
     const loadRecoveredAmount = async () => {
-      if (!submittedTenantId.trim()) {
+      if (!attemptsTenantId.trim()) {
         setSovereignRecoveredAmount(0);
         return;
       }
@@ -1277,7 +1283,7 @@ export function App() {
         let total = 0;
         while (hasMore) {
           const query = new URLSearchParams({
-            tenantId: submittedTenantId,
+            tenantId: attemptsTenantId,
             from: submittedFrom,
             to: submittedTo,
             limit: "100",
@@ -1315,7 +1321,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, submittedFrom, submittedTenantId, submittedTo, accessToken]);
+  }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
 
   const onSort = (nextKey: TimeseriesSortKey) => {
     if (sortKey === nextKey) {
@@ -1377,8 +1383,12 @@ export function App() {
 
   const navigateToMenu = (menu: SideMenuKey) => {
     setSovereignNavOpen(false);
+    const navigationTenantId = menu === "attempts" ? attemptsTenantId : submittedTenantId;
     setActiveMenu(menu);
-    if (menu !== "dashboard" && !submittedTenantId.trim()) {
+    if (menu === "attempts" && targetTenantId && targetTenantId !== submittedTenantId) {
+      setSubmittedTenantId(targetTenantId);
+    }
+    if (menu !== "dashboard" && !navigationTenantId.trim()) {
       pushToast("Selecione uma conta para navegar nas seções.");
       return;
     }
