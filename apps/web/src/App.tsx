@@ -1782,7 +1782,7 @@ export function App() {
   const settingsMutationsDisabled =
     currentTenantMembershipRole === "readonly" || currentTenantMembershipRole === "member";
 
-  const loadTenantDashboardSettings = async () => {
+  const loadTenantDashboardSettings = useCallback(async () => {
     if (!targetTenantId) {
       pushToast("Selecione uma conta válida para carregar as configurações.");
       return;
@@ -1884,7 +1884,7 @@ export function App() {
     } finally {
       setSettingsLoading(false);
     }
-  };
+  }, [accessToken, baseUrl, dashboardAuthGate, targetTenantId]);
 
   const saveTenantDashboardSettings = async () => {
     if (!targetTenantId) {
@@ -2732,6 +2732,44 @@ export function App() {
   const needsOverviewData = isDashboardMenu || isAttemptsMenu;
   const useReferenceDashboard = true;
   const isSovereignMode = useReferenceDashboard;
+
+  useEffect(() => {
+    if (!targetTenantId) {
+      setWebhookUrl("");
+      setTenantSettings({
+        planMonthlyEventsLimit: null,
+        planMonthlyRecoveryLimit: null,
+        billingPlan: null,
+        recoveryContactCooldownMinutes: null,
+        recoveryContactMaxAttemptsPerDay: null,
+        webhookProviderPreferred: null,
+      });
+      setProviderConfigs({
+        hotmart: null,
+        kiwify: null,
+        hubla: null,
+        generic: null,
+      });
+      setEnabledProviders({
+        hotmart: false,
+        kiwify: false,
+        hubla: false,
+        generic: false,
+      });
+      return;
+    }
+    if (!(isIntegrationsMenu || isAccountMenu || isSettingsMenu)) return;
+    if (dashboardAuthGate && !accessToken?.trim()) return;
+    void loadTenantDashboardSettings();
+  }, [
+    accessToken,
+    dashboardAuthGate,
+    isAccountMenu,
+    isIntegrationsMenu,
+    isSettingsMenu,
+    loadTenantDashboardSettings,
+    targetTenantId,
+  ]);
 
   const sovereignActions = [
     { label: "Recuperação via WhatsApp", icon: "chat_bubble" as const },
