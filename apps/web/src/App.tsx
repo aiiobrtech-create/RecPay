@@ -367,7 +367,6 @@ type RecoveryLinkDraft = {
   triggerEventType: string;
   productName: string;
   active: boolean;
-  priority: string;
   submittedBy: string;
 };
 
@@ -465,7 +464,6 @@ function emptyRecoveryLinkDraft(): RecoveryLinkDraft {
     triggerEventType: "",
     productName: "",
     active: true,
-    priority: "0",
     submittedBy: "",
   };
 }
@@ -478,7 +476,6 @@ function recoveryLinkToDraft(item: DashboardRecoveryLink): RecoveryLinkDraft {
     triggerEventType: item.triggerEventType ?? "",
     productName: item.productName ?? "",
     active: item.active,
-    priority: String(item.priority),
     submittedBy: item.submittedBy ?? "",
   };
 }
@@ -2319,12 +2316,6 @@ export function App() {
       return;
     }
 
-    const priorityNum = Number.parseInt(newRecoveryLinkDraft.priority, 10);
-    if (!Number.isFinite(priorityNum) || priorityNum < 0) {
-      pushToast("Prioridade inválida.");
-      return;
-    }
-
     setRecoveryLinkCreating(true);
     try {
       const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/recovery-links`, accessToken, {
@@ -2337,7 +2328,6 @@ export function App() {
           triggerEventType: newRecoveryLinkDraft.triggerEventType.trim() || null,
           productName: newRecoveryLinkDraft.productName.trim() || null,
           active: newRecoveryLinkDraft.active,
-          priority: priorityNum,
           submittedBy: newRecoveryLinkDraft.submittedBy.trim() || null,
         }),
       });
@@ -2375,11 +2365,6 @@ export function App() {
       pushToast("Preencha nome e URL antes de salvar.");
       return;
     }
-    const priorityNum = Number.parseInt(draft.priority, 10);
-    if (!Number.isFinite(priorityNum) || priorityNum < 0) {
-      pushToast("Prioridade inválida.");
-      return;
-    }
 
     setRecoveryLinkSavingId(linkId);
     try {
@@ -2396,7 +2381,6 @@ export function App() {
             triggerEventType: draft.triggerEventType.trim() || null,
             productName: draft.productName.trim() || null,
             active: draft.active,
-            priority: priorityNum,
             submittedBy: draft.submittedBy.trim() || null,
           }),
         },
@@ -5233,6 +5217,10 @@ export function App() {
                     </button>
                   </div>
 
+                  <h3 className="recovery-link-section-title">Enviar novo link</h3>
+                  <p className="inline-help subtle recovery-link-section-lead">
+                    Preencha os dados abaixo e envie para análise. Campos opcionais ajudam a equipe a validar o contexto do link.
+                  </p>
                   <div className="recovery-link-create-grid">
                     <label className="account-field">
                       <span className="account-label">Nome interno</span>
@@ -5304,19 +5292,6 @@ export function App() {
                       />
                     </label>
                     <label className="account-field">
-                      <span className="account-label">Prioridade</span>
-                      <input
-                        className="account-input"
-                        type="number"
-                        min={0}
-                        value={newRecoveryLinkDraft.priority}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, priority: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                      />
-                    </label>
-                    <label className="account-field">
                       <span className="account-label">Responsável</span>
                       <input
                         className="account-input"
@@ -5328,17 +5303,28 @@ export function App() {
                         placeholder="Seu nome ou responsavel pelo link"
                       />
                     </label>
-                    <label className="account-field account-field--checkbox">
-                      <span className="account-label">Ativar após aprovação</span>
-                      <input
-                        type="checkbox"
-                        checked={newRecoveryLinkDraft.active}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, active: event.target.checked }))
-                        }
+                    <div className="recovery-link-active-toggle account-field-span2">
+                      <div className="recovery-link-active-toggle-copy">
+                        <p className="recovery-link-active-toggle-title">Ativar quando aprovado</p>
+                        <p className="recovery-link-active-toggle-desc">
+                          Se ligado, o link passa a ser usado nas mensagens após a aprovação. A ordem entre vários links
+                          continua com a operação, não aqui.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={newRecoveryLinkDraft.active}
+                        aria-label="Ativar quando aprovado"
                         disabled={settingsMutationsDisabled}
-                      />
-                    </label>
+                        className={`recovery-link-switch ${newRecoveryLinkDraft.active ? "recovery-link-switch--on" : ""}`}
+                        onClick={() =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, active: !current.active }))
+                        }
+                      >
+                        <span className="recovery-link-switch-thumb" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
@@ -5354,8 +5340,12 @@ export function App() {
 
                   <div className="recovery-links-list">
                     {recoveryLinksList.length === 0 ? (
-                      <div className="recovery-link-empty">
-                        Nenhum link cadastrado ainda. Preencha os campos acima para enviar o primeiro link para revisao.
+                      <div className="recovery-link-empty" role="status">
+                        <span className="material-symbols-outlined recovery-link-empty-icon" aria-hidden="true">
+                          link_off
+                        </span>
+                        <p className="recovery-link-empty-title">Nenhum link cadastrado</p>
+                        <p className="recovery-link-empty-text">Preencha o formulário acima e envie para revisão.</p>
                       </div>
                     ) : (
                       recoveryLinksList.map((item) => {
@@ -5454,22 +5444,6 @@ export function App() {
                                 />
                               </label>
                               <label className="account-field">
-                                <span className="account-label">Prioridade</span>
-                                <input
-                                  className="account-input"
-                                  type="number"
-                                  min={0}
-                                  value={draft.priority}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, priority: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field">
                                 <span className="account-label">Responsável</span>
                                 <input
                                   className="account-input"
@@ -5505,6 +5479,7 @@ export function App() {
                                   ? recoveryTriggerLabelMap[draft.triggerEventType] ?? draft.triggerEventType
                                   : "todos os gatilhos"}
                               </span>
+                              <span>Ordem na fila (operação): {item.priority}</span>
                               {item.reviewedAt ? (
                                 <span>
                                   Revisado em {formatDateTime(item.reviewedAt)}
@@ -5662,7 +5637,7 @@ export function App() {
                                   : "todos"}
                               </span>
                               <span>Produto: {item.productName || "não informado"}</span>
-                              <span>Prioridade: {item.priority}</span>
+                              <span>Ordem na fila: {item.priority}</span>
                               <span>{item.active ? "Ativo" : "Inativo"}</span>
                               <span>Enviado por: {item.submittedBy || "não informado"}</span>
                             </div>
