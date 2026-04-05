@@ -151,6 +151,11 @@ function stripeRequestOptionsForSession(session: Stripe.Checkout.Session): Strip
   return connectedAccount ? { stripeAccount: connectedAccount } : undefined;
 }
 
+function isStripeConnectedAccountAccessError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /does not have access to account/i.test(error.message) || /no such subscription/i.test(error.message);
+}
+
 async function resolveCheckoutCustomerEmail(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
@@ -185,45 +190,49 @@ async function resolveStripeBillingRefs(
 
   let paymentMethodId: string | null = null;
 
-  if (typeof session.payment_intent === "string") {
-    const intent = await stripe.paymentIntents.retrieve(session.payment_intent, requestOptions);
-    paymentMethodId =
-      typeof intent.payment_method === "string"
-        ? intent.payment_method
-        : intent.payment_method && typeof intent.payment_method === "object" && "id" in intent.payment_method
-          ? typeof intent.payment_method.id === "string"
-            ? intent.payment_method.id
-            : null
-          : null;
-  }
-
-  if (!paymentMethodId && typeof session.subscription === "string") {
-    const subscription = await stripe.subscriptions.retrieve(session.subscription, requestOptions);
-    paymentMethodId =
-      typeof subscription.default_payment_method === "string"
-        ? subscription.default_payment_method
-        : subscription.default_payment_method &&
-            typeof subscription.default_payment_method === "object" &&
-            "id" in subscription.default_payment_method
-          ? typeof subscription.default_payment_method.id === "string"
-            ? subscription.default_payment_method.id
-            : null
-          : null;
-  }
-
-  if (!paymentMethodId && customerId) {
-    const customer = await stripe.customers.retrieve(customerId, requestOptions);
-    if (!customer.deleted) {
-      const fallbackPm = customer.invoice_settings.default_payment_method;
+  try {
+    if (typeof session.payment_intent === "string") {
+      const intent = await stripe.paymentIntents.retrieve(session.payment_intent, requestOptions);
       paymentMethodId =
-        typeof fallbackPm === "string"
-          ? fallbackPm
-          : fallbackPm && typeof fallbackPm === "object" && "id" in fallbackPm
-            ? typeof fallbackPm.id === "string"
-              ? fallbackPm.id
+        typeof intent.payment_method === "string"
+          ? intent.payment_method
+          : intent.payment_method && typeof intent.payment_method === "object" && "id" in intent.payment_method
+            ? typeof intent.payment_method.id === "string"
+              ? intent.payment_method.id
               : null
             : null;
     }
+
+    if (!paymentMethodId && typeof session.subscription === "string") {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription, requestOptions);
+      paymentMethodId =
+        typeof subscription.default_payment_method === "string"
+          ? subscription.default_payment_method
+          : subscription.default_payment_method &&
+              typeof subscription.default_payment_method === "object" &&
+              "id" in subscription.default_payment_method
+            ? typeof subscription.default_payment_method.id === "string"
+              ? subscription.default_payment_method.id
+              : null
+            : null;
+    }
+
+    if (!paymentMethodId && customerId) {
+      const customer = await stripe.customers.retrieve(customerId, requestOptions);
+      if (!customer.deleted) {
+        const fallbackPm = customer.invoice_settings.default_payment_method;
+        paymentMethodId =
+          typeof fallbackPm === "string"
+            ? fallbackPm
+            : fallbackPm && typeof fallbackPm === "object" && "id" in fallbackPm
+              ? typeof fallbackPm.id === "string"
+                ? fallbackPm.id
+                : null
+              : null;
+      }
+    }
+  } catch (error: unknown) {
+    if (!isStripeConnectedAccountAccessError(error)) throw error;
   }
 
   return { customerId, paymentMethodId };
