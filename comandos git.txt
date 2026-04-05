@@ -2,7 +2,7 @@ cd /opt/recpay
 
 git status
 git add .
-git commit -m "kiwify webhook - teste2"
+git commit -m "correção tela de menssagens"
 git push origin main
 
 

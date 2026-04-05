@@ -398,7 +398,10 @@ export function LandingPageApp() {
                   <li>Equipe tenta contato manual depois.</li>
                   <li>Tentativas de cobrança inconsistentes.</li>
                 </ul>
-                <p>Recuperação: 0%</p>
+                <div className="before-after-stat">
+                  <span className="before-after-stat-label">Cenário sem automação</span>
+                  <strong>0% recuperado</strong>
+                </div>
               </>
             ) : (
               <>
@@ -407,7 +410,10 @@ export function LandingPageApp() {
                   <li>WhatsApp enviado em até 2 minutos.</li>
                   <li>Retry baseado em comportamento.</li>
                 </ul>
-                <p>Recuperação estimada: 20% da perda</p>
+                <div className="before-after-stat">
+                  <span className="before-after-stat-label">Cenário com recuperação ativa</span>
+                  <strong>Até 20% da perda pode voltar para o caixa</strong>
+                </div>
               </>
             )}
           </div>
