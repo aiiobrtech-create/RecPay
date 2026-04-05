@@ -45,14 +45,43 @@ const DASHBOARD_URL =
   (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.trim() ||
   (import.meta.env.DEV ? 'http://127.0.0.1:5173' : 'https://app.recpay.com.br');
 
+const STRIPE_MODE = ((): 'test' | 'live' => {
+  const raw = (import.meta.env.VITE_STRIPE_MODE as string | undefined)?.trim().toLowerCase();
+  return raw === 'live' ? 'live' : 'test';
+})();
+
 const STRIPE_CHECKOUT_LINKS = {
-  essential: {
-    monthly: (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_MONTHLY as string | undefined)?.trim() || '',
-    yearly: (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_YEARLY as string | undefined)?.trim() || '',
+  test: {
+    essential: {
+      monthly: (import.meta.env.VITE_STRIPE_TEST_LINK_ESSENTIAL_MONTHLY as string | undefined)?.trim() || '',
+      yearly: (import.meta.env.VITE_STRIPE_TEST_LINK_ESSENTIAL_YEARLY as string | undefined)?.trim() || '',
+    },
+    growth: {
+      monthly: (import.meta.env.VITE_STRIPE_TEST_LINK_GROWTH_MONTHLY as string | undefined)?.trim() || '',
+      yearly: (import.meta.env.VITE_STRIPE_TEST_LINK_GROWTH_YEARLY as string | undefined)?.trim() || '',
+    },
   },
-  growth: {
-    monthly: (import.meta.env.VITE_STRIPE_LINK_GROWTH_MONTHLY as string | undefined)?.trim() || '',
-    yearly: (import.meta.env.VITE_STRIPE_LINK_GROWTH_YEARLY as string | undefined)?.trim() || '',
+  live: {
+    essential: {
+      monthly:
+        (import.meta.env.VITE_STRIPE_LIVE_LINK_ESSENTIAL_MONTHLY as string | undefined)?.trim() ||
+        (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_MONTHLY as string | undefined)?.trim() ||
+        '',
+      yearly:
+        (import.meta.env.VITE_STRIPE_LIVE_LINK_ESSENTIAL_YEARLY as string | undefined)?.trim() ||
+        (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_YEARLY as string | undefined)?.trim() ||
+        '',
+    },
+    growth: {
+      monthly:
+        (import.meta.env.VITE_STRIPE_LIVE_LINK_GROWTH_MONTHLY as string | undefined)?.trim() ||
+        (import.meta.env.VITE_STRIPE_LINK_GROWTH_MONTHLY as string | undefined)?.trim() ||
+        '',
+      yearly:
+        (import.meta.env.VITE_STRIPE_LIVE_LINK_GROWTH_YEARLY as string | undefined)?.trim() ||
+        (import.meta.env.VITE_STRIPE_LINK_GROWTH_YEARLY as string | undefined)?.trim() ||
+        '',
+    },
   },
 } as const;
 
@@ -240,11 +269,12 @@ const PRICING_PLANS = [
 ] as const;
 
 function resolvePricingHref(planName: (typeof PRICING_PLANS)[number]['name'], cycle: 'monthly' | 'yearly') {
+  const links = STRIPE_CHECKOUT_LINKS[STRIPE_MODE];
   switch (planName) {
     case 'Essencial':
-      return STRIPE_CHECKOUT_LINKS.essential[cycle];
+      return links.essential[cycle];
     case 'Growth':
-      return STRIPE_CHECKOUT_LINKS.growth[cycle];
+      return links.growth[cycle];
     case 'Scale':
       return SALES_CONTACT_URL;
     default:
@@ -1181,6 +1211,7 @@ const FAQ = () => {
 function PricingSection() {
   const enter = useEnterVariants();
   const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const isStripeTestMode = STRIPE_MODE === 'test';
 
   return (
     <section
@@ -1245,6 +1276,19 @@ function PricingSection() {
                 ? 'Valores por mês equivalente; cobrança única anual no checkout.'
                 : 'Cobrança mensal recorrente; cancele quando quiser conforme contrato.'}
             </p>
+            <p
+              className={cn(
+                'rounded-full px-3 py-1 text-center text-xs font-semibold uppercase tracking-[0.18em]',
+                isStripeTestMode ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900',
+              )}
+            >
+              Stripe em modo {isStripeTestMode ? 'teste' : 'live'}
+            </p>
+            {isStripeTestMode ? (
+              <p className="max-w-xl text-center text-xs text-on-surface-variant">
+                Configure os links `VITE_STRIPE_TEST_LINK_*` para testar o checkout sem abrir links de produÃ§Ã£o.
+              </p>
+            ) : null}
           </motion.div>
         </motion.div>
 
@@ -1260,6 +1304,7 @@ function PricingSection() {
             const displayPerMonth = cycle === 'monthly' ? listMonthly : monthlyEquivalent(listMonthly);
             const yearlyTotal = yearlyCharge(listMonthly);
             const href = resolvePricingHref(plan.name, cycle);
+            const isDisabled = !href;
             return (
               <motion.article
                 key={plan.name}
@@ -1309,16 +1354,22 @@ function PricingSection() {
 
                 <a
                   href={href || '#planos'}
+                  aria-disabled={isDisabled}
                   target={href && href.startsWith('http') ? '_blank' : undefined}
                   rel={href && href.startsWith('http') ? 'noreferrer' : undefined}
                   className={cn(
                     'mt-10 block w-full rounded-full py-4 text-center font-headline text-sm font-bold transition-all',
+                    isDisabled && 'cursor-not-allowed opacity-60',
                     plan.highlighted
                       ? 'bg-primary text-white shadow-lg shadow-primary/25 hover:opacity-95'
                       : 'border border-slate-200 bg-white text-on-surface hover:border-primary/40 hover:bg-primary/5',
                   )}
+                  onClick={(event) => {
+                    if (!isDisabled) return;
+                    event.preventDefault();
+                  }}
                 >
-                  {plan.cta}
+                  {isDisabled && plan.name !== 'Scale' ? 'Configurar checkout de teste' : plan.cta}
                 </a>
               </motion.article>
             );
