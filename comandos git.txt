@@ -1,0 +1,12 @@
+cd /opt/recpay
+
+git status
+git add .
+git commit -m "kiwify webhook - teste2"
+git push origin main
+
+
+git pull origin main
+npm install
+npm run build
+pm2 restart all

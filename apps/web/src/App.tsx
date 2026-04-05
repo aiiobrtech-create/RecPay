@@ -1903,7 +1903,12 @@ export function App() {
     }
   }, [accessToken, baseUrl, dashboardAuthGate, targetTenantId]);
 
-  const saveTenantDashboardSettings = async () => {
+  const saveTenantDashboardSettings = async (options?: {
+    providerConfigsOverride?: Record<ProviderKey, ProviderConfig | null>;
+    enabledProvidersOverride?: Record<ProviderKey, boolean>;
+  }) => {
+    const effectiveProviderConfigs = options?.providerConfigsOverride ?? providerConfigs;
+    const effectiveEnabledProviders = options?.enabledProvidersOverride ?? enabledProviders;
     if (!targetTenantId) {
       pushToast("Selecione uma conta válida para salvar as configurações.");
       return;
@@ -1917,8 +1922,8 @@ export function App() {
       return;
     }
     const invalidEnabledProvider = providerItems.find((provider) => {
-      if (!enabledProviders[provider.key]) return false;
-      const config = providerConfigs[provider.key];
+      if (!effectiveEnabledProviders[provider.key]) return false;
+      const config = effectiveProviderConfigs[provider.key];
       if (!config) return true;
       return !providerConfigHasRequiredFields(provider.key, config);
     });
@@ -1928,17 +1933,37 @@ export function App() {
       return;
     }
     const providerConfigsPayload: Record<ProviderKey, ProviderConfig | null> = {
-      hotmart: providerConfigs.hotmart
-        ? { ...providerConfigs.hotmart, enabled: isProviderConnected("hotmart") }
+      hotmart: effectiveProviderConfigs.hotmart
+        ? {
+            ...effectiveProviderConfigs.hotmart,
+            enabled:
+              effectiveEnabledProviders.hotmart &&
+              providerConfigHasRequiredFields("hotmart", effectiveProviderConfigs.hotmart),
+          }
         : null,
-      kiwify: providerConfigs.kiwify
-        ? { ...providerConfigs.kiwify, enabled: isProviderConnected("kiwify") }
+      kiwify: effectiveProviderConfigs.kiwify
+        ? {
+            ...effectiveProviderConfigs.kiwify,
+            enabled:
+              effectiveEnabledProviders.kiwify &&
+              providerConfigHasRequiredFields("kiwify", effectiveProviderConfigs.kiwify),
+          }
         : null,
-      hubla: providerConfigs.hubla
-        ? { ...providerConfigs.hubla, enabled: isProviderConnected("hubla") }
+      hubla: effectiveProviderConfigs.hubla
+        ? {
+            ...effectiveProviderConfigs.hubla,
+            enabled:
+              effectiveEnabledProviders.hubla &&
+              providerConfigHasRequiredFields("hubla", effectiveProviderConfigs.hubla),
+          }
         : null,
-      generic: providerConfigs.generic
-        ? { ...providerConfigs.generic, enabled: isProviderConnected("generic") }
+      generic: effectiveProviderConfigs.generic
+        ? {
+            ...effectiveProviderConfigs.generic,
+            enabled:
+              effectiveEnabledProviders.generic &&
+              providerConfigHasRequiredFields("generic", effectiveProviderConfigs.generic),
+          }
         : null,
     };
     setSettingsSaving(true);
@@ -4697,23 +4722,28 @@ export function App() {
                     </button>
                     <button
                       className="btn btn-primary"
-                      onClick={() => {
+                      onClick={async () => {
                         if (providerConfigDraft.enabled && !providerConfigHasRequiredFields(providerEditing, providerConfigDraft)) {
                           pushToast(providerFieldCopy(providerEditing).missingFieldsMessage);
                           return;
                         }
-                        setProviderConfigs((current) => ({
-                          ...current,
+                        const nextProviderConfigs = {
+                          ...providerConfigs,
                           [providerEditing]: {
                             ...providerConfigDraft,
                             enabled: providerConfigDraft.enabled,
                           },
-                        }));
-                        setEnabledProviders((current) => ({
-                          ...current,
+                        };
+                        const nextEnabledProviders = {
+                          ...enabledProviders,
                           [providerEditing]: providerConfigDraft.enabled,
-                        }));
-                        pushToast("Configuração pronta. Clique em Salvar configurações.");
+                        };
+                        setProviderConfigs(nextProviderConfigs);
+                        setEnabledProviders(nextEnabledProviders);
+                        await saveTenantDashboardSettings({
+                          providerConfigsOverride: nextProviderConfigs,
+                          enabledProvidersOverride: nextEnabledProviders,
+                        });
                         setProviderModalOpen(false);
                       }}
                     >
