@@ -21,6 +21,7 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
   for (const key of keys) {
     const value = obj[key];
     if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return undefined;
 }
@@ -40,16 +41,36 @@ function pickNumber(obj: Record<string, unknown>, keys: string[]): number | unde
 function inferOutcome(rawStatus: string | undefined): PaymentOutcome {
   const status = rawStatus?.toLowerCase() ?? "";
   if (!status) return "unknown";
-  if (["approved", "completed", "paid", "billet_printed"].some((s) => status.includes(s))) {
+  if (["approved", "completed", "paid"].some((s) => status.includes(s))) {
     return "approved";
   }
-  if (["pending", "waiting", "processing", "under_review"].some((s) => status.includes(s))) {
+  if (["pending", "waiting", "processing", "under_review", "billet_printed"].some((s) => status.includes(s))) {
     return "pending";
   }
-  if (["refunded", "canceled", "cancelled", "chargeback", "expired", "failed"].some((s) => status.includes(s))) {
+  if (["refunded", "canceled", "cancelled", "chargeback", "expired", "failed", "delayed"].some((s) => status.includes(s))) {
     return "failed";
   }
   return "unknown";
+}
+
+function pickTimestamp(obj: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return new Date(value).toISOString();
+    }
+    if (typeof value === "string" && value.trim()) {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) {
+        return new Date(numeric).toISOString();
+      }
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+  }
+  return undefined;
 }
 
 function safeEq(a: string, b: string): boolean {
@@ -111,8 +132,11 @@ export function parseHotmartToCanonical(params: {
   const data = asObject(root.data);
   const purchase = asObject(data.purchase);
   const buyer = asObject(data.buyer);
+  const product = asObject(data.product);
   const rootBuyer = asObject(root.buyer);
   const sourceBuyer = Object.keys(buyer).length > 0 ? buyer : rootBuyer;
+  const purchasePrice = asObject(purchase.price);
+  const purchaseFullPrice = asObject(purchase.full_price);
 
   const purchaseStatus =
     pickString(purchase, ["status", "purchase_status"]) ??
@@ -122,13 +146,16 @@ export function parseHotmartToCanonical(params: {
 
   const amountRaw =
     pickNumber(purchase, ["price", "price_value", "value", "amount"]) ??
+    pickNumber(purchasePrice, ["value"]) ??
+    pickNumber(purchaseFullPrice, ["value"]) ??
     pickNumber(data, ["value", "amount"]);
   const amountCents =
     amountRaw === undefined ? 0 : Number.isInteger(amountRaw) && Math.abs(amountRaw) >= 1000 ? Math.trunc(amountRaw) : Math.round(amountRaw * 100);
 
   const occurredAt =
-    pickString(data, ["happened_at", "created_at", "approved_date"]) ??
-    pickString(root, ["creation_date"]) ??
+    pickTimestamp(data, ["happened_at", "created_at", "approved_date"]) ??
+    pickTimestamp(purchase, ["approved_date", "order_date"]) ??
+    pickTimestamp(root, ["creation_date"]) ??
     new Date().toISOString();
 
   return {
@@ -142,7 +169,17 @@ export function parseHotmartToCanonical(params: {
         pickString(data, ["buyer_id"]) ??
         "unknown",
       email: pickString(sourceBuyer, ["email"]),
-      phoneE164: pickString(sourceBuyer, ["phone", "phone_number"]),
+      phoneE164: (() => {
+        const directPhone = pickString(sourceBuyer, ["phone", "phone_number"]);
+        if (directPhone) return directPhone;
+        const checkoutPhone = [
+          pickString(sourceBuyer, ["checkout_phone_code"]),
+          pickString(sourceBuyer, ["checkout_phone"]),
+        ]
+          .filter(Boolean)
+          .join("");
+        return checkoutPhone || undefined;
+      })(),
       name: pickString(sourceBuyer, ["name"]),
     },
     order: {
@@ -151,8 +188,12 @@ export function parseHotmartToCanonical(params: {
         pickString(data, ["transaction"]) ??
         "unknown",
       amountCents,
-      currency: pickString(purchase, ["currency", "currency_code"]) ?? "BRL",
-      productName: pickString(data, ["product_name", "name"]),
+      currency:
+        pickString(purchase, ["currency", "currency_code"]) ??
+        pickString(purchasePrice, ["currency", "currency_value"]) ??
+        pickString(purchaseFullPrice, ["currency", "currency_value"]) ??
+        "BRL",
+      productName: pickString(data, ["product_name", "name"]) ?? pickString(product, ["name"]),
     },
     payment: { outcome },
     rawRef: { provider: "hotmart", payloadHash: params.payloadHash },

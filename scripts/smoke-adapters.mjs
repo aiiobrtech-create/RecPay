@@ -46,6 +46,32 @@ function runHotmart() {
     payload,
   });
   expectOutcomeAndIntegration(canonical, "failed", "hotmart", "hotmart");
+
+  const pendingPayload = {
+    event: "PURCHASE_BILLET_PRINTED",
+    creation_date: 1775412124935,
+    data: {
+      product: { name: "Produto teste" },
+      purchase: {
+        status: "BILLET_PRINTED",
+        transaction: "HOT-2",
+        price: { value: 1500, currency_value: "BRL" },
+      },
+      buyer: {
+        email: "buyer.pending@example.com",
+        checkout_phone_code: "55",
+        checkout_phone: "11999999999",
+        name: "Buyer Pending",
+      },
+    },
+  };
+  const pendingCanonical = parseHotmartToCanonical({
+    tenantId: "tenant-1",
+    idempotencyKey: "key-hot-2",
+    payloadHash: "hash-hot-2",
+    payload: pendingPayload,
+  });
+  expectOutcomeAndIntegration(pendingCanonical, "pending", "hotmart", "hotmart");
 }
 
 function runKiwify() {
