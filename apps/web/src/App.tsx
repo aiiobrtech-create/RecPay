@@ -4475,19 +4475,21 @@ export function App() {
                     </button>
                   </div>
                   <div className="filters integrations-config-grid">
-                    <label>
-                      {providerFieldCopy(providerEditing).apiKeyLabel}
-                      <input
-                        value={providerConfigDraft.apiKey}
-                        onChange={(event) =>
-                          setProviderConfigDraft((current) => ({
-                            ...current,
-                            apiKey: event.target.value,
-                          }))
-                        }
-                        placeholder={providerFieldCopy(providerEditing).apiKeyPlaceholder}
-                      />
-                    </label>
+                    {providerEditing !== "hotmart" && (
+                      <label>
+                        {providerFieldCopy(providerEditing).apiKeyLabel}
+                        <input
+                          value={providerConfigDraft.apiKey}
+                          onChange={(event) =>
+                            setProviderConfigDraft((current) => ({
+                              ...current,
+                              apiKey: event.target.value,
+                            }))
+                          }
+                          placeholder={providerFieldCopy(providerEditing).apiKeyPlaceholder}
+                        />
+                      </label>
+                    )}
                     <label>
                       {providerFieldCopy(providerEditing).webhookTokenLabel}
                       <input
