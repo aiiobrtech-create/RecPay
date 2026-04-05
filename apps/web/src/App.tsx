@@ -688,6 +688,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("post_checkout") !== "1") return;
+
+    const checkoutEmail = params.get("email")?.trim() ?? "";
+    if (checkoutEmail) {
+      setAuthEmail(checkoutEmail);
+    }
+
+    setAuthFormError(null);
+    setAuthFormInfo(
+      "Pagamento confirmado. Defina sua senha pelo link enviado ao seu e-mail para concluir o acesso ao painel.",
+    );
+  }, []);
+
+  useEffect(() => {
     if (!isSupabaseBrowserConfigured || !supabase) {
       setAuthReady(true);
       return;
