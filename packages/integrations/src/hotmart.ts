@@ -68,7 +68,7 @@ export function verifyHotmartWebhook(
   const expectedSecret = credentials?.secret?.trim() || process.env.HOTMART_WEBHOOK_SECRET?.trim();
 
   if (!expectedHottok && !expectedSecret) {
-    return { ok: false, reason: "hotmart_signature_not_configured" };
+    return { ok: true };
   }
 
   if (expectedHottok) {

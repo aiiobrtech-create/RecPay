@@ -407,10 +407,10 @@ function providerConfigHasRequiredFields(provider: ProviderKey, config: Provider
   const apiKey = config.apiKey.trim();
   const webhookToken = config.webhookToken.trim();
   const hasEndpoint = Boolean(config.endpointUrl.trim());
-  const hasWebhookToken = Boolean(webhookToken && webhookToken !== REDACTED_PROVIDER_SECRET);
   if (provider === "hotmart") {
-    return hasWebhookToken && hasEndpoint;
+    return hasEndpoint;
   }
+  const hasWebhookToken = Boolean(webhookToken && webhookToken !== REDACTED_PROVIDER_SECRET);
   return Boolean(apiKey && hasWebhookToken && hasEndpoint && apiKey !== REDACTED_PROVIDER_SECRET);
 }
 
@@ -419,9 +419,9 @@ function providerFieldCopy(provider: ProviderKey): ProviderFieldCopy {
     return {
       apiKeyLabel: "Segredo do webhook (opcional)",
       apiKeyPlaceholder: "Use apenas se a Hotmart enviar assinatura HMAC",
-      webhookTokenLabel: "Hottok / token do webhook",
-      webhookTokenPlaceholder: "Token Hottok fornecido pela Hotmart",
-      missingFieldsMessage: "Preencha token e endereco antes de ativar.",
+      webhookTokenLabel: "",
+      webhookTokenPlaceholder: "",
+      missingFieldsMessage: "Preencha o endereco antes de ativar.",
     };
   }
   return {
@@ -4490,19 +4490,21 @@ export function App() {
                         />
                       </label>
                     )}
-                    <label>
-                      {providerFieldCopy(providerEditing).webhookTokenLabel}
-                      <input
-                        value={providerConfigDraft.webhookToken}
-                        onChange={(event) =>
-                          setProviderConfigDraft((current) => ({
-                            ...current,
-                            webhookToken: event.target.value,
-                          }))
-                        }
-                        placeholder={providerFieldCopy(providerEditing).webhookTokenPlaceholder}
-                      />
-                    </label>
+                    {providerEditing !== "hotmart" && (
+                      <label>
+                        {providerFieldCopy(providerEditing).webhookTokenLabel}
+                        <input
+                          value={providerConfigDraft.webhookToken}
+                          onChange={(event) =>
+                            setProviderConfigDraft((current) => ({
+                              ...current,
+                              webhookToken: event.target.value,
+                            }))
+                          }
+                          placeholder={providerFieldCopy(providerEditing).webhookTokenPlaceholder}
+                        />
+                      </label>
+                    )}
                     <label>
                       URL de retorno (callback)
                       <input
