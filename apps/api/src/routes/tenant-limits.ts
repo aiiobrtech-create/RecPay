@@ -25,14 +25,6 @@ const providerConfigSchema = z.object({
   apiKey: z.string().trim().max(512).nullable().optional(),
   webhookToken: z.string().trim().max(512).nullable().optional(),
   endpointUrl: z.string().trim().max(2048).nullable().optional(),
-}).superRefine((value, ctx) => {
-  if (!value.enabled) return;
-  const complete = Boolean(value.apiKey?.trim() && value.webhookToken?.trim() && value.endpointUrl?.trim());
-  if (complete) return;
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: "enabled_provider_requires_api_key_webhook_token_and_endpoint_url",
-  });
 });
 const integrationConfigsSchema = z
   .object({
@@ -55,6 +47,29 @@ const bodySchema = z.object({
   recoveryChannelMode: channelModeSchema.nullable().optional(),
   webhookProviderPreferred: webhookProviderSchema.nullable().optional(),
   providerConfigs: integrationConfigsSchema,
+}).superRefine((value, ctx) => {
+  const configs = value.providerConfigs;
+  if (!configs) return;
+
+  for (const provider of ["hotmart", "kiwify", "hubla", "generic"] as const) {
+    const config = configs[provider];
+    if (!config?.enabled) continue;
+
+    const hasEndpoint = Boolean(config.endpointUrl?.trim());
+    const hasWebhookToken = Boolean(config.webhookToken?.trim());
+    const hasApiKey = Boolean(config.apiKey?.trim());
+    const valid = provider === "hotmart" ? hasEndpoint && hasWebhookToken : hasEndpoint && hasWebhookToken && hasApiKey;
+    if (valid) continue;
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["providerConfigs", provider],
+      message:
+        provider === "hotmart"
+          ? "enabled_provider_requires_webhook_token_and_endpoint_url"
+          : "enabled_provider_requires_api_key_webhook_token_and_endpoint_url",
+    });
+  }
 });
 
 const REDACTED_SECRET = "********";

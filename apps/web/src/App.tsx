@@ -255,6 +255,14 @@ type ProviderConfig = {
   endpointUrl: string;
 };
 
+type ProviderFieldCopy = {
+  apiKeyLabel: string;
+  apiKeyPlaceholder: string;
+  webhookTokenLabel: string;
+  webhookTokenPlaceholder: string;
+  missingFieldsMessage: string;
+};
+
 const REDACTED_PROVIDER_SECRET = "********";
 
 interface SavedView {
@@ -394,17 +402,35 @@ function emptyProviderConfig(endpointUrl = ""): ProviderConfig {
   };
 }
 
-function providerConfigHasRequiredFields(config: ProviderConfig | null | undefined): boolean {
+function providerConfigHasRequiredFields(provider: ProviderKey, config: ProviderConfig | null | undefined): boolean {
   if (!config) return false;
   const apiKey = config.apiKey.trim();
   const webhookToken = config.webhookToken.trim();
-  return Boolean(
-    apiKey &&
-      webhookToken &&
-      config.endpointUrl.trim() &&
-      apiKey !== REDACTED_PROVIDER_SECRET &&
-      webhookToken !== REDACTED_PROVIDER_SECRET,
-  );
+  const hasEndpoint = Boolean(config.endpointUrl.trim());
+  const hasWebhookToken = Boolean(webhookToken && webhookToken !== REDACTED_PROVIDER_SECRET);
+  if (provider === "hotmart") {
+    return hasWebhookToken && hasEndpoint;
+  }
+  return Boolean(apiKey && hasWebhookToken && hasEndpoint && apiKey !== REDACTED_PROVIDER_SECRET);
+}
+
+function providerFieldCopy(provider: ProviderKey): ProviderFieldCopy {
+  if (provider === "hotmart") {
+    return {
+      apiKeyLabel: "Segredo do webhook (opcional)",
+      apiKeyPlaceholder: "Use apenas se a Hotmart enviar assinatura HMAC",
+      webhookTokenLabel: "Hottok / token do webhook",
+      webhookTokenPlaceholder: "Token Hottok fornecido pela Hotmart",
+      missingFieldsMessage: "Preencha token e endereco antes de ativar.",
+    };
+  }
+  return {
+    apiKeyLabel: "Chave da plataforma",
+    apiKeyPlaceholder: "Cole a chave da plataforma",
+    webhookTokenLabel: "Token de assinatura do webhook",
+    webhookTokenPlaceholder: "Token fornecido pela plataforma",
+    missingFieldsMessage: "Preencha chave, token e endereco antes de ativar.",
+  };
 }
 
 function emptyRecoveryLinkDraft(): RecoveryLinkDraft {
@@ -1525,7 +1551,7 @@ export function App() {
   };
 
   const isProviderConnected = (providerKey: ProviderKey) =>
-    enabledProviders[providerKey] && providerConfigHasRequiredFields(providerConfigs[providerKey]);
+    enabledProviders[providerKey] && providerConfigHasRequiredFields(providerKey, providerConfigs[providerKey]);
 
   const onSaveView = () => {
     const name = viewName.trim();
@@ -1717,7 +1743,7 @@ export function App() {
       pushToast("Ative o provedor antes de testar.");
       return;
     }
-    if (!providerConfigHasRequiredFields(config)) {
+    if (!providerConfigHasRequiredFields(provider, config)) {
       pushToast("Preencha chave, token e endereço antes do teste.");
       openProviderConfig(provider);
       return;
@@ -1868,10 +1894,7 @@ export function App() {
       if (!enabledProviders[provider.key]) return false;
       const config = providerConfigs[provider.key];
       if (!config) return true;
-      const hasEndpoint = Boolean(config.endpointUrl.trim());
-      const hasApiKey = Boolean(config.apiKey.trim());
-      const hasWebhookToken = Boolean(config.webhookToken.trim());
-      return !(hasEndpoint && hasApiKey && hasWebhookToken);
+      return !providerConfigHasRequiredFields(provider.key, config);
     });
     if (invalidEnabledProvider) {
       pushToast(`Configure ${invalidEnabledProvider.label} antes de ativar o provedor.`);
@@ -4291,7 +4314,7 @@ export function App() {
                                 }));
                                 return;
                               }
-                              if (!providerConfigHasRequiredFields(providerConfigs[provider.key])) {
+                              if (!providerConfigHasRequiredFields(provider.key, providerConfigs[provider.key])) {
                                 pushToast(`Configure ${provider.label} antes de ativar o provedor.`);
                                 openProviderConfig(provider.key);
                                 return;
@@ -4315,7 +4338,7 @@ export function App() {
                           <span className={isProviderConnected(provider.key) ? "is-online" : "is-offline"}>
                             {isProviderConnected(provider.key)
                               ? "Conectado"
-                              : providerConfigHasRequiredFields(providerConfigs[provider.key])
+                              : providerConfigHasRequiredFields(provider.key, providerConfigs[provider.key])
                                 ? "Configurado"
                                 : "Pendente"}
                           </span>
@@ -4453,7 +4476,7 @@ export function App() {
                   </div>
                   <div className="filters integrations-config-grid">
                     <label>
-                      Chave da plataforma
+                      {providerFieldCopy(providerEditing).apiKeyLabel}
                       <input
                         value={providerConfigDraft.apiKey}
                         onChange={(event) =>
@@ -4462,11 +4485,11 @@ export function App() {
                             apiKey: event.target.value,
                           }))
                         }
-                        placeholder="Cole a chave da plataforma"
+                        placeholder={providerFieldCopy(providerEditing).apiKeyPlaceholder}
                       />
                     </label>
                     <label>
-                      Token de assinatura do webhook
+                      {providerFieldCopy(providerEditing).webhookTokenLabel}
                       <input
                         value={providerConfigDraft.webhookToken}
                         onChange={(event) =>
@@ -4475,7 +4498,7 @@ export function App() {
                             webhookToken: event.target.value,
                           }))
                         }
-                        placeholder="Token fornecido pela plataforma"
+                        placeholder={providerFieldCopy(providerEditing).webhookTokenPlaceholder}
                       />
                     </label>
                     <label>
@@ -4499,7 +4522,7 @@ export function App() {
                         setProviderConfigDraft((current) => ({ ...current, enabled: true }));
                         pushToast("Provedor marcado para ativacao. Salve a configuracao.");
                       }}
-                      disabled={!providerConfigHasRequiredFields(providerConfigDraft)}
+                      disabled={!providerConfigHasRequiredFields(providerEditing, providerConfigDraft)}
                     >
                       Ativar provedor
                     </button>
@@ -4509,8 +4532,8 @@ export function App() {
                     <button
                       className="btn btn-primary"
                       onClick={() => {
-                        if (providerConfigDraft.enabled && !providerConfigHasRequiredFields(providerConfigDraft)) {
-                          pushToast("Preencha chave, token e endereco antes de ativar.");
+                        if (providerConfigDraft.enabled && !providerConfigHasRequiredFields(providerEditing, providerConfigDraft)) {
+                          pushToast(providerFieldCopy(providerEditing).missingFieldsMessage);
                           return;
                         }
                         setProviderConfigs((current) => ({
