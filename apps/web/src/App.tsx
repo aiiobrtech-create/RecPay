@@ -696,6 +696,10 @@ export function App() {
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [serverTenants, setServerTenants] = useState<DashboardMeTenant[]>([]);
   const [canReviewRecoveryLinks, setCanReviewRecoveryLinks] = useState(false);
+  const [webhookChangeDialogOpen, setWebhookChangeDialogOpen] = useState(false);
+  const [webhookChangePassword, setWebhookChangePassword] = useState("");
+  const [webhookChangeBusy, setWebhookChangeBusy] = useState(false);
+  const [webhookChangeError, setWebhookChangeError] = useState<string | null>(null);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "http://127.0.0.1:3000";
 
@@ -2044,6 +2048,57 @@ export function App() {
       pushToast(`Falha ao gerar webhook: ${error instanceof Error ? error.message : "erro desconhecido"}`);
     } finally {
       setWebhookRotating(false);
+    }
+  };
+
+  const openWebhookChangeDialog = () => {
+    if (!targetTenantId) {
+      pushToast("Selecione uma conta válida antes de alterar a URL do webhook.");
+      return;
+    }
+    if (settingsMutationsDisabled) {
+      pushToast("Seu usuário tem permissão somente leitura para esta conta.");
+      return;
+    }
+    setWebhookChangePassword("");
+    setWebhookChangeError(null);
+    setWebhookChangeDialogOpen(true);
+  };
+
+  const confirmWebhookUrlChange = async () => {
+    if (!supabase || !dashboardAuthGate) {
+      setWebhookChangeError("Confirmação por senha indisponível nesta instalação.");
+      return;
+    }
+    const password = webhookChangePassword.trim();
+    if (!password) {
+      setWebhookChangeError("Informe sua senha para continuar.");
+      return;
+    }
+    setWebhookChangeBusy(true);
+    setWebhookChangeError(null);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user?.email) {
+        throw new Error(userError?.message || "Não foi possível identificar o usuário autenticado.");
+      }
+      const { error: signError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+      if (signError) {
+        throw new Error("Senha inválida.");
+      }
+      await rotateWebhookUrl();
+      setWebhookChangeDialogOpen(false);
+      setWebhookChangePassword("");
+    } catch (error) {
+      setWebhookChangeError(error instanceof Error ? error.message : "Falha ao validar a senha.");
+    } finally {
+      setWebhookChangeBusy(false);
     }
   };
 
@@ -3783,10 +3838,10 @@ export function App() {
                 </button>
                 <button
                   className="btn btn-secondary"
-                  onClick={() => void rotateWebhookUrl()}
+                  onClick={openWebhookChangeDialog}
                   disabled={webhookRotating || settingsMutationsDisabled}
                 >
-                  {webhookRotating ? "Gerando..." : "Gerar URL de webhook"}
+                  {webhookRotating ? "Alterando..." : webhookUrl ? "Alterar URL do webhook" : "Gerar URL do webhook"}
                 </button>
               </div>
             </div>
@@ -3863,9 +3918,12 @@ export function App() {
                   className="account-input"
                   value={webhookUrl}
                   readOnly
-                  placeholder="Clique em Gerar URL de webhook"
+                  placeholder="A URL será exibida aqui"
                 />
               </label>
+              <p className="inline-help">
+                Depois de gerada, a URL fica fixa. Qualquer alteração só pode ser feita aqui em Configurações e exige senha.
+              </p>
                   </div>
                 </article>
               </div>
@@ -4516,12 +4574,9 @@ export function App() {
                     <h4>Configuração de webhook</h4>
                     <label>
                       URL do webhook
-                      <input value={webhookUrl} readOnly placeholder="Clique em Gerar URL de webhook" />
+                      <input value={webhookUrl} readOnly placeholder="A URL gerada aparecerá aqui" />
                     </label>
                     <div className="filter-actions settings-actions">
-                      <button className="btn btn-secondary" onClick={() => void rotateWebhookUrl()} disabled={webhookRotating}>
-                        {webhookRotating ? "Gerando..." : "Gerar URL"}
-                      </button>
                       <button
                         className="btn btn-tertiary"
                         onClick={async () => {
@@ -4540,6 +4595,7 @@ export function App() {
                     <p className="inline-help">
                       Aviso: mantenha a URL segura. Ela permite entrada de dados no fluxo de recuperação.
                     </p>
+                    <p className="inline-help">Para alterar a URL, use o menu Configurações e confirme com sua senha.</p>
                   </article>
                 </div>
               </div>
@@ -5944,13 +6000,13 @@ export function App() {
                 <button
                   type="button"
                   className="account-btn account-btn-secondary"
-                  onClick={() => void rotateWebhookUrl()}
-                  disabled={webhookRotating || settingsMutationsDisabled}
+                  disabled
+                  title="Altere a URL apenas no menu Configurações."
                 >
                   <span className="material-symbols-outlined" aria-hidden="true">
-                    link
+                    lock
                   </span>
-                  {webhookRotating ? "Gerando..." : "Gerar URL webhook"}
+                  Alteração só em Configurações
                 </button>
                 <button
                   type="button"
@@ -6088,6 +6144,48 @@ export function App() {
                 </button>
                 <button className="btn btn-danger" onClick={onConfirmDeleteView}>
                   Excluir filtro
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {webhookChangeDialogOpen && (
+          <div className="confirm-delete-backdrop" onClick={() => !webhookChangeBusy && setWebhookChangeDialogOpen(false)}>
+            <section className="confirm-delete-modal surface" onClick={(event) => event.stopPropagation()}>
+              <h3>{webhookUrl ? "Alterar URL do webhook" : "Gerar URL do webhook"}</h3>
+              <p>
+                {webhookUrl
+                  ? "Essa ação vai substituir a URL atual do webhook. Confirme com sua senha para continuar."
+                  : "A URL do webhook será gerada e ficará bloqueada para mudanças comuns. Confirme com sua senha para continuar."}
+              </p>
+              <label className="auth-gate-field">
+                <span className="auth-gate-label">Senha atual</span>
+                <input
+                  className="account-input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={webhookChangePassword}
+                  onChange={(event) => setWebhookChangePassword(event.target.value)}
+                  placeholder="Digite sua senha"
+                  disabled={webhookChangeBusy}
+                />
+              </label>
+              {webhookChangeError ? (
+                <p className="auth-gate-error" role="alert">
+                  {webhookChangeError}
+                </p>
+              ) : null}
+              <div className="confirm-delete-actions">
+                <button
+                  className="btn btn-tertiary"
+                  onClick={() => setWebhookChangeDialogOpen(false)}
+                  disabled={webhookChangeBusy}
+                >
+                  Cancelar
+                </button>
+                <button className="btn btn-primary" onClick={() => void confirmWebhookUrlChange()} disabled={webhookChangeBusy}>
+                  {webhookChangeBusy ? "Confirmando..." : "Confirmar alteração"}
                 </button>
               </div>
             </section>
