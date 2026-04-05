@@ -31,40 +31,40 @@ const painPanels: Record<
 > = {
   card: {
     label: "Cartão recusado",
-    title: "Uma recusada não deveria encerrar uma venda quente.",
-    body: "Quando o cartão falha, a intenção de compra continua viva. O problema costuma ser a ausência de reação rápida.",
-    action: "Aciona uma nova tentativa com recuperação automática.",
+    title: "Antifraude e instabilidade bancária barram bons clientes.",
+    body: "Sem uma segunda tentativa rápida, o pedido morre e o CAC investido se perde junto com a venda.",
+    action: "Recupera a chance enquanto a intenção de compra ainda está quente.",
   },
   pix: {
     label: "PIX expirado",
-    title: "PIX expirado e dinheiro parado no último passo.",
-    body: "O cliente chegou até o pagamento, mas o prazo acabou. Sem retomada, a venda vira perda invisível.",
-    action: "Reengaja o cliente com novo caminho de pagamento.",
+    title: "A intenção de compra é real, mas o prazo acaba.",
+    body: "Sem lembrete no tempo certo, o cliente não volta e a venda esfria no último passo do checkout.",
+    action: "Reengaja no momento ideal com novo caminho de pagamento.",
   },
   abandonment: {
-    label: "Abandono",
-    title: "Abandono no checkout ainda pode virar faturamento.",
-    body: "Quem caiu no último clique está perto do sim. A página precisa transformar isso em nova chance de conversão.",
-    action: "Dispara o fluxo certo antes que a oportunidade esfrie.",
+    label: "Abandono no checkout",
+    title: "Dúvida de última hora ou distração mudam o desfecho.",
+    body: "Reagir nos primeiros minutos faz diferença. Quem espera perde o timing da venda e deixa receita escapar.",
+    action: "Aciona a recuperação antes que a oportunidade esfrie.",
   },
 };
 
 const faqs = [
   {
-    question: "Eu já uso checkout. Por que eu precisaria disso?",
-    answer: "Porque checkout sozinho não faz recuperação automática nem mostra quanto voltou para o caixa.",
+    question: "Eu já tenho checkout. Por que precisaria disso?",
+    answer: "Porque checkout sozinho não recupera falha, PIX expirado e abandono automaticamente nem mostra quanto voltou para o caixa.",
   },
   {
     question: "Como eu sei se vale a pena?",
-    answer: "Pela receita recuperada. A proposta da LP é mostrar o retorno em número, não em discurso.",
+    answer: "Pela receita recuperada em reais. O simulador dimensiona o vazamento e o painel mostra o retorno real da operação.",
   },
   {
     question: "Serve para operações com várias marcas ou contas?",
-    answer: "Sim. A página foi desenhada para comunicar um produto preparado para operações multi-tenant.",
+    answer: "Sim. A operação pode acompanhar diferentes contas e marcas sem perder visibilidade do que foi recuperado.",
   },
   {
     question: "Isso reduz trabalho manual?",
-    answer: "Sim. O foco é tirar a recuperação do improviso e transformar em fluxo padronizado.",
+    answer: "Sim. O objetivo é tirar a recuperação do improviso, reduzir tentativas manuais e transformar isso em processo.",
   },
 ];
 
@@ -170,15 +170,16 @@ export function LandingPageApp() {
         <section className="hero-section" id="hero">
           <div className="hero-copy" data-reveal>
             <div className="hero-badge">RECUPERAÇÃO AUTOMÁTICA DE VENDAS</div>
-            <h1>Recupere vendas perdidas no checkout de forma automática.</h1>
+            <p className="hero-subtitle">+1k confiado por +1.000 operações de alto volume</p>
+            <h1>Você está deixando dinheiro na mesa no checkout — e nem percebe.</h1>
             <p className="hero-subtitle">
-              Cartão recusado, PIX expirado e abandono deixam dinheiro na mesa. O produto reage por você e mostra
-              quanto voltou em receita.
+              Cartão recusado, PIX expirado e abandono fazem você perder receita todos os dias. Nosso sistema reage
+              por você e mostra quanto voltou para o seu caixa.
             </p>
 
             <div className="hero-actions">
-              <a className="btn-primary" href="#simulador">
-                Quero recuperar mais vendas
+              <a className="btn-primary" href="#cta-final">
+                Ver planos e valores
                 <ArrowRight size={18} />
               </a>
               <a className="btn-secondary" href="#como-funciona">
@@ -251,8 +252,8 @@ export function LandingPageApp() {
         <section className="section problem-section" id="problema">
           <div className="section-heading" data-reveal>
             <span>Problema</span>
-            <h2>Você investe para vender. O checkout falha. A receita some.</h2>
-            <p>Nem toda venda perdida foi realmente perdida. Muitas travam no último passo e ficam sem recuperação.</p>
+            <h2>Você investe para vender. O checkout falha. E o dinheiro não volta.</h2>
+            <p>Toque em um cenário para ver o foco da recuperação. O mesmo funil pode falhar por motivos diferentes.</p>
           </div>
 
           <div className="pain-grid">
@@ -284,8 +285,8 @@ export function LandingPageApp() {
 
             <article className="pain-card" data-reveal>
               <ShoppingCart size={26} />
-              <h3>Quem chegou no checkout não é lead frio.</h3>
-              <p>Esta é a parte do funil em que pequenas falhas geram perdas grandes e silenciosas.</p>
+              <h3>Quem chegou no checkout já mostrou intenção real de compra.</h3>
+              <p>Pequenas falhas nessa etapa geram perdas grandes, silenciosas e recorrentes no seu caixa.</p>
             </article>
           </div>
         </section>
@@ -294,7 +295,10 @@ export function LandingPageApp() {
           <div className="section-heading" data-reveal>
             <span>Simulador</span>
             <h2>Veja quanto dinheiro pode estar ficando para trás.</h2>
-            <p>Movimente os controles e transforme perda invisível em número visível.</p>
+            <p>
+              O destaque é a perda mensal no checkout. A recuperação abaixo usa uma faixa típica de conversão da
+              perda em receita recuperada.
+            </p>
           </div>
 
           <div className="simulator-layout">
@@ -308,22 +312,22 @@ export function LandingPageApp() {
 
             <div className="simulator-results" data-reveal>
               <div className="metric-card metric-card-lg">
-                <small>Receita em risco</small>
+                <small>Perda mensal no checkout</small>
                 <strong>{formatCurrency(simulation.leaked)}</strong>
-                <span>valor mensal potencialmente travado no checkout</span>
+                <span>estimativa do que deixa de entrar por mês com os percentuais ao lado</span>
               </div>
               <div className="metric-card">
-                <small>Receita recuperável</small>
+                <small>Quanto pode voltar para o caixa (mês)</small>
                 <strong>{formatCurrency(simulation.recovered)}</strong>
-                <span>cenário mensal estimado</span>
+                <span>cenário ilustrativo; o real depende do funil e da operação</span>
               </div>
               <div className="metric-card">
-                <small>Multiplicação do investimento</small>
-                <strong>{simulation.roi.toFixed(1)}x</strong>
-                <span>retorno estimado sobre o custo mensal</span>
+                <small>Projeção em 12 meses</small>
+                <strong>{formatCurrency(simulation.recovered * 12)}</strong>
+                <span>soma simples do valor mensal para dimensionar impacto</span>
               </div>
               <div className="metric-card metric-card-pulse">
-                <small>Receita bruta processada</small>
+                <small>Receita bruta mensal estimada</small>
                 <strong>{formatCurrency(simulation.gross)}</strong>
                 <span>base de cálculo do cenário</span>
               </div>
@@ -335,24 +339,24 @@ export function LandingPageApp() {
           <div className="section-heading" data-reveal>
             <span>Como funciona</span>
             <h2>Da falha ao valor recuperado.</h2>
-            <p>Sem aula técnica. O visitante precisa enxergar o fluxo em segundos.</p>
+            <p>Nossa engine trabalha em background, sem afetar a performance do seu site ou a experiência do usuário.</p>
           </div>
 
           <div className="flow-grid">
             <FlowCard
               icon={<Gauge size={22} />}
-              title="Detecta a falha"
-              text="Identifica cartão recusado, PIX expirado e abandono no checkout."
+              title="Detecta"
+              text="Monitoramos cada requisição no seu checkout e identificamos instantaneamente cartão negado ou PIX não pago."
             />
             <FlowCard
               icon={<Lightning size={22} />}
-              title="Aciona a recuperação"
-              text="Executa a próxima ação para tentar recuperar a venda."
+              title="Aciona"
+              text="Nossa IA envia no WhatsApp uma mensagem personalizada com um novo link de pagamento, no momento ideal."
             />
             <FlowCard
               icon={<ChartLineUp size={22} />}
-              title="Mostra o resultado"
-              text="Exibe recuperações e receita em um painel com leitura de negócio."
+              title="Mostra"
+              text="Você acompanha em tempo real cada venda recuperada e o impacto direto na sua receita através do painel."
             />
           </div>
         </section>
@@ -360,14 +364,14 @@ export function LandingPageApp() {
         <section className="section outcomes-section">
           <div className="section-heading" data-reveal>
             <span>Benefícios</span>
-            <h2>Mais receita, menos retrabalho, mais clareza.</h2>
+            <h2>Mais receita, menos retrabalho, mais controle.</h2>
           </div>
 
           <div className="outcomes-grid">
-            <BenefitCard icon={<TrendUp size={22} />} title="Mais receita recuperada" text="Recupere parte do que hoje se perde no último passo da compra." />
-            <BenefitCard icon={<CursorClick size={22} />} title="Menos operação manual" text="Sua equipe deixa de correr atrás de cada caso sem padrão." />
-            <BenefitCard icon={<ChartLineUp size={22} />} title="Mais visibilidade" text="O financeiro enxerga o retorno em número e não em suposição." />
-            <BenefitCard icon={<Lock size={22} />} title="Mais controle" text="Comunica uma operação mais organizada, mais segura e preparada para escalar." />
+            <BenefitCard icon={<TrendUp size={22} />} title="Implementação em minutos" text="Sem código complexo. Integração nativa com as principais gateways de pagamento do Brasil." />
+            <BenefitCard icon={<CursorClick size={22} />} title="Retry inteligente" text="A engine tenta novamente a cobrança em janelas com maior probabilidade de aprovação." />
+            <BenefitCard icon={<ChartLineUp size={22} />} title="Foco no resultado" text="Sua equipe para de perder tempo com tentativas manuais e foca no que realmente escala." />
+            <BenefitCard icon={<Lock size={22} />} title="Compliance total" text="Operação alinhada à LGPD e a boas práticas de segurança em pagamentos." />
           </div>
         </section>
 
@@ -389,15 +393,15 @@ export function LandingPageApp() {
           <div className="before-after-panel" data-reveal>
             {beforeAfter === "before" ? (
               <ul>
-                <li>Pagamento falha e para ali.</li>
-                <li>Equipe tenta resolver no manual.</li>
-                <li>Ninguém sabe o impacto real.</li>
+                <li>O cliente sai do checkout sem retorno.</li>
+                <li>Equipe tenta contato manual depois.</li>
+                <li>Tentativas de cobrança inconsistentes.</li>
               </ul>
             ) : (
               <ul>
-                <li>A falha vira gatilho de ação.</li>
-                <li>A recuperação acontece automaticamente.</li>
-                <li>O resultado aparece no painel.</li>
+                <li>Intervenção automática em milissegundos.</li>
+                <li>WhatsApp enviado em até 2 minutos.</li>
+                <li>Retry baseado em comportamento.</li>
               </ul>
             )}
           </div>
@@ -431,12 +435,12 @@ export function LandingPageApp() {
           <div className="final-cta-card">
             <div>
               <span>CTA final</span>
-              <h2>Se sua operação perde vendas no checkout, isso pode ser recuperado.</h2>
-              <p>Veja onde sua receita está vazando e como transformar isso em retorno.</p>
+              <h2>Se sua operação perde vendas no checkout, você pode recuperar isso automaticamente.</h2>
+              <p>Veja onde sua receita está vazando e simule o impacto no seu caixa.</p>
             </div>
             <div className="final-cta-actions">
-              <a className="btn-primary" href="#hero">
-                Agendar demonstração
+              <a className="btn-primary" href="#simulador">
+                Ver planos
                 <ArrowRight size={18} />
               </a>
               <a className="btn-secondary" href="#simulador">
@@ -448,7 +452,7 @@ export function LandingPageApp() {
       </main>
 
       <a className="sticky-mobile-cta" href="#cta-final">
-        Quero recuperar mais vendas
+        Ver planos
       </a>
     </div>
   );

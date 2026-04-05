@@ -160,35 +160,35 @@ const SOCIAL_STATS = [
     value: '15–25%',
     hint: 'faixa citada em pesquisas de e-commerce BR; varia por operação',
   },
-  { label: 'Operações acompanhadas', value: '500+', hint: 'e-commerces e infoprodutos' },
+  { label: 'Operações acompanhadas', value: '500+', hint: 'base acompanhada' },
 ] as const;
 
 const SOCIAL_TESTIMONIALS = [
   {
     id: 't1',
     quote:
-      'A gente sabia que perdia PIX, mas não tinha número fechado. Em poucas semanas já dava para ver o que voltava — e priorizar o que doía mais no checkout.',
-    name: 'Carla Menezes',
-    role: 'Head de Operações',
-    company: 'E-commerce de beleza · SP',
+      'O retry deixou de ser tentativa e virou processo. Menos esforço manual e mais pedidos pagos com rastreio claro.',
+    name: 'Operação parceira',
+    role: 'Depoimento',
+    company: 'Uso ilustrativo',
     rating: 5,
   },
   {
     id: 't2',
     quote:
-      'O retry saiu da tentativa aleatória e virou processo. Menos planilha, menos cobrança manual no suporte e mais pedido pago com rastreio claro.',
-    name: 'Ricardo Tavares',
-    role: 'CFO',
-    company: 'Varejo digital · MG',
+      'A intenção de compra já existia. O ganho veio quando a recuperação começou a acontecer no timing certo.',
+    name: 'Operação digital',
+    role: 'Financeiro',
+    company: 'Caso ilustrativo',
     rating: 5,
   },
   {
     id: 't3',
     quote:
-      'Integração foi rápida e o time de CX parou de caçar pedido na mão. O painel mostra o que recuperou sem misturar com métrica de tráfego.',
-    name: 'Juliana Souza',
-    role: 'Customer Success Lead',
-    company: 'Infoprodutos · RJ',
+      'O painel deu clareza sobre o que estava vazando no checkout e o que de fato voltou para o caixa.',
+    name: 'Operação de alto volume',
+    role: 'Operações',
+    company: 'Caso ilustrativo',
     rating: 5,
   },
 ] as const;
@@ -555,7 +555,7 @@ function BenefitsSection({
             Benefícios
           </span>
           <h2 className="mt-3 max-w-4xl font-headline text-2xl font-bold tracking-tight sm:mt-4 sm:text-4xl lg:text-5xl">
-            Mais receita, menos retrabalho, mais clareza.
+            Mais receita, menos retrabalho, mais controle.
           </h2>
         </motion.div>
 
@@ -629,14 +629,14 @@ function SocialProofSection({ enter }: { enter: ReturnType<typeof useEnterVarian
           variants={enter.stagger}
         >
           <motion.span variants={enter.item} className="font-headline text-xs font-bold uppercase tracking-widest text-primary">
-            Provas sociais
+            Provas
           </motion.span>
           <motion.h2
             id="provas-heading"
             variants={enter.item}
             className="mt-3 font-headline text-2xl font-bold tracking-tight sm:mt-4 sm:text-4xl lg:text-5xl"
           >
-            Quem vende em escala sente a diferença no caixa.
+            Quem vende em escala sente no caixa.
           </motion.h2>
           <motion.p variants={enter.item} className="mx-auto mt-3 max-w-2xl text-sm text-on-surface-variant sm:mt-4 sm:text-base">
             Faixas de mercado para contexto, depoimentos ilustrativos e um fluxo que lembra o painel — métricas reais vêm do seu rastreio.
@@ -1095,7 +1095,7 @@ const Simulator = () => {
                 R$ {formatBRL(perdaMensal)}
               </div>
               <p className="mt-3 max-w-md text-xs leading-relaxed opacity-85 sm:mt-4 sm:text-sm">
-                Estimativa do que deixa de entrar por mês com os percentuais ao lado. É o valor que mais dói — e o que a recuperação tenta trazer de volta.
+                Estimativa do que deixa de entrar por mês com os percentuais ao lado. É o valor que mais impacta seu caixa — e o que a recuperação tenta trazer de volta.
               </p>
 
               <div className="mt-6 border-t border-white/20 pt-6 sm:mt-8 sm:pt-8">
@@ -1134,16 +1134,20 @@ const FAQ = () => {
 
   const questions = [
     {
-      q: "Como é feita a integração com meu checkout?",
-      a: "Oferecemos integrações nativas para plataformas como Hotmart, Shopify, Kiwify e via API robusta para sistemas proprietários. O setup inicial leva menos de 10 minutos."
+      q: "Eu já uso checkout. Por que eu precisaria disso?",
+      a: "Porque checkout sozinho não recupera automaticamente as falhas nem mostra quanto voltou para o seu caixa."
     },
     {
-      q: 'Qual o ROI médio da ferramenta?',
-      a: 'O retorno depende do GMV, do ticket e de quanto da sua receita trava no checkout (falha, abandono, PIX). Pesquisas de mercado citam faixas altas de recusas no pagamento no e-commerce brasileiro — o quanto disso vira receita recuperada varia por operação. O painel mostra recuperação atribuída em reais; na demo alinhamos expectativa com o seu caso e com os limites do plano.',
+      q: 'Como eu sei se vale a pena?',
+      a: 'Pela receita recuperada em reais. O simulador dimensiona o vazamento e o painel mostra o retorno da operação com base no seu funil.',
     },
     {
-      q: "A engine suporta multi-tenant?",
-      a: "Sim, agências e grandes grupos podem gerenciar múltiplas contas e domínios em um único dashboard centralizado com permissões granulares."
+      q: "Serve para operações com várias marcas ou contas?",
+      a: "Sim. A estrutura atende operações com múltiplas contas mantendo rastreio e visibilidade do que foi recuperado."
+    },
+    {
+      q: "Isso reduz trabalho manual?",
+      a: "Sim. O foco é tirar a recuperação do improviso e transformar as tentativas em processo com menos retrabalho."
     }
   ];
 
@@ -1161,7 +1165,7 @@ const FAQ = () => {
             FAQ
           </motion.span>
           <motion.h2 variants={enter.item} className="mt-3 font-headline text-2xl font-bold tracking-tight sm:mt-4 sm:text-4xl">
-            Perguntas Frequentes
+            Respostas curtas para objeções reais.
           </motion.h2>
         </motion.div>
 
@@ -1238,7 +1242,7 @@ function PricingSection() {
             Valores claros. Troque entre mensal e anual.
           </motion.h2>
           <motion.p variants={enter.item} className="mx-auto mt-4 max-w-2xl text-on-surface-variant">
-            No anual você economiza <strong className="text-on-surface font-headline">20%</strong> em relação a 12 cobranças mensais — mesmo serviço, melhor preço por mês.
+            Se você já perde vendas no checkout, recuperar uma parte disso já pode pagar o plano.
           </motion.p>
 
           <motion.div variants={enter.item} className="mt-10 flex flex-col items-center gap-3">
@@ -1461,11 +1465,11 @@ export default function App() {
               variants={enter.item}
               className="max-w-4xl font-headline text-3xl font-bold leading-[1.12] tracking-tighter text-on-surface sm:text-5xl md:text-7xl"
             >
-              Recupere vendas perdidas no <span className="text-primary">checkout</span> de forma automática.
+              Você está deixando dinheiro na mesa no <span className="text-primary">checkout</span> — e nem percebe.
             </motion.h1>
 
             <motion.p variants={enter.item} className="max-w-2xl text-base leading-relaxed text-on-surface-variant sm:text-xl">
-              Cartão recusado, PIX expirado e abandono deixam dinheiro na mesa. Nosso sistema reage por você e mostra quanto voltou em receita.
+              Cartão recusado, PIX expirado e abandono fazem você perder receita todos os dias. Nosso sistema reage por você e mostra quanto voltou para o seu caixa.
             </motion.p>
 
             <motion.div variants={enter.item} className="flex w-full max-w-md flex-col justify-center gap-3 sm:max-w-none sm:flex-row sm:gap-4">
@@ -1535,7 +1539,7 @@ export default function App() {
               variants={enter.item}
               className="mt-3 max-w-3xl font-headline text-2xl font-bold tracking-tight sm:mt-4 sm:text-4xl lg:text-5xl"
             >
-              Você investe para vender. O checkout falha. A receita some.
+              Você investe para vender. O checkout falha. E o dinheiro não volta.
             </motion.h2>
             <motion.p variants={enter.item} className="mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant sm:mt-4 sm:text-base">
               Toque em um cenário para ver o foco da recuperação — o mesmo funil pode falhar por motivos diferentes.
@@ -1650,7 +1654,7 @@ export default function App() {
                 </p>
                 <div className="mt-12 p-6 bg-white/5 rounded-xl border border-white/10">
                   <p className="text-sm italic font-medium opacity-80">
-                    "Muitas empresas focam em trazer tráfego, mas ignoram que o balde está furado na hora de pagar."
+                    "Muitas operações investem pesado em tráfego, mas perdem dinheiro na etapa mais crítica: o pagamento."
                   </p>
                 </div>
               </div>
@@ -1700,13 +1704,13 @@ export default function App() {
               {
                 step: "2",
                 title: "Aciona",
-                desc: "Nossa IA envia no WhatsApp uma mensagem personalizada com o link de pagamento atualizado, no timing ideal para converter.",
+                desc: "Nossa IA envia no WhatsApp uma mensagem personalizada com um novo link de pagamento, no momento ideal para recuperar a venda.",
                 img: "https://picsum.photos/seed/action/800/600"
               },
               {
                 step: "3",
                 title: "Mostra",
-                desc: "Você acompanha em tempo real cada venda salva e o impacto direto na sua margem de lucro líquida através do nosso painel.",
+                desc: "Você acompanha em tempo real cada venda recuperada e o impacto direto na sua receita através do painel.",
                 img: "https://picsum.photos/seed/results/800/600"
               }
             ].map((item, i) => (
@@ -1768,9 +1772,9 @@ export default function App() {
               </span>
               <div className="space-y-6">
                 {[
-                  "O cliente sai do checkout sem feedback",
-                  "Equipe tenta contato manual após 24h",
-                  "Tentativas de cobrança aleatórias"
+                  "O cliente sai do checkout sem retorno",
+                  "Equipe tenta contato manual depois",
+                  "Tentativas de cobrança inconsistentes"
                 ].map((text, i) => (
                   <div key={i} className="flex items-center gap-4 text-on-surface/50 font-medium">
                     <XCircle size={20} className="text-red-400" />
@@ -1779,7 +1783,7 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <ConversionRateCounter rate={4.2} className="text-on-surface/20" />
+                <ConversionRateCounter rate={0} className="text-on-surface/20" />
               </div>
             </motion.div>
 
@@ -1789,8 +1793,8 @@ export default function App() {
               <div className="space-y-6">
                 {[
                   "Intervenção automática em milissegundos",
-                  "WhatsApp enviado em 2 minutos",
-                  "Retry inteligente baseado em comportamento"
+                  "WhatsApp enviado em até 2 minutos",
+                  "Retry baseado em comportamento"
                 ].map((text, i) => (
                   <div key={i} className="flex items-center gap-4 font-bold">
                     <CheckCircle2 size={20} className="text-primary" />
@@ -1799,7 +1803,7 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <ConversionRateCounter rate={11.8} className="text-primary" />
+                <ConversionRateCounter rate={0} className="text-primary" />
               </div>
             </motion.div>
           </motion.div>
@@ -1836,7 +1840,7 @@ export default function App() {
             variants={enter.item}
             className="relative z-10 mb-6 mt-4 font-headline text-2xl font-bold leading-snug tracking-tight text-white sm:mb-10 sm:mt-6 sm:text-4xl sm:leading-tight lg:text-6xl"
           >
-            Se sua operação perde vendas no checkout, isso pode ser recuperado.
+            Se sua operação perde vendas no checkout, você pode recuperar isso automaticamente.
           </motion.h2>
           <motion.div variants={enter.item} className="relative z-10 flex w-full max-w-md flex-col justify-center gap-3 sm:max-w-none sm:flex-row sm:gap-4">
             <a
