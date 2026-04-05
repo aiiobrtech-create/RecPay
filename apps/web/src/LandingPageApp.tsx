@@ -392,17 +392,23 @@ export function LandingPageApp() {
 
           <div className="before-after-panel" data-reveal>
             {beforeAfter === "before" ? (
-              <ul>
-                <li>O cliente sai do checkout sem retorno.</li>
-                <li>Equipe tenta contato manual depois.</li>
-                <li>Tentativas de cobrança inconsistentes.</li>
-              </ul>
+              <>
+                <ul>
+                  <li>O cliente sai do checkout sem retorno.</li>
+                  <li>Equipe tenta contato manual depois.</li>
+                  <li>Tentativas de cobrança inconsistentes.</li>
+                </ul>
+                <p>Recuperação: 0%</p>
+              </>
             ) : (
-              <ul>
-                <li>Intervenção automática em milissegundos.</li>
-                <li>WhatsApp enviado em até 2 minutos.</li>
-                <li>Retry baseado em comportamento.</li>
-              </ul>
+              <>
+                <ul>
+                  <li>Intervenção automática em milissegundos.</li>
+                  <li>WhatsApp enviado em até 2 minutos.</li>
+                  <li>Retry baseado em comportamento.</li>
+                </ul>
+                <p>Recuperação estimada: 20% da perda</p>
+              </>
             )}
           </div>
         </section>

@@ -1239,7 +1239,7 @@ function PricingSection() {
             variants={enter.item}
             className="mt-3 font-headline text-2xl font-bold tracking-tight sm:mt-4 sm:text-4xl lg:text-5xl"
           >
-            Valores claros. Troque entre mensal e anual.
+            Transforme perdas do checkout em receita previsível.
           </motion.h2>
           <motion.p variants={enter.item} className="mx-auto mt-4 max-w-2xl text-on-surface-variant">
             Se você já perde vendas no checkout, recuperar uma parte disso já pode pagar o plano.
@@ -1783,7 +1783,9 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <ConversionRateCounter rate={0} className="text-on-surface/20" />
+                <div className="font-headline text-2xl font-bold tabular-nums text-on-surface/20 sm:text-3xl md:text-4xl">
+                  Recuperação: 0%
+                </div>
               </div>
             </motion.div>
 
@@ -1803,7 +1805,9 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <ConversionRateCounter rate={0} className="text-primary" />
+                <div className="font-headline text-2xl font-bold tabular-nums text-primary sm:text-3xl md:text-4xl">
+                  Recuperação estimada: 20% da perda
+                </div>
               </div>
             </motion.div>
           </motion.div>
