@@ -130,6 +130,17 @@ function normalizeTenantInput(value: string): string {
   return value.trim().replace(/^['"]+|['"]+$/g, "").toLowerCase();
 }
 
+function normalizeProviderKey(value: string): "hotmart" | "kiwify" | "hubla" | "generic" | "unknown" {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.includes("hotmart")) return "hotmart";
+  if (normalized.includes("kiwify")) return "kiwify";
+  if (normalized.includes("hubla")) return "hubla";
+  if (normalized.includes("generic") || normalized.includes("custom") || normalized.includes("personal")) {
+    return "generic";
+  }
+  return "unknown";
+}
+
 function numberInputToNullable(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -4254,11 +4265,14 @@ export function App() {
                         row.provider.length > 1
                           ? row.provider.charAt(0).toUpperCase() + row.provider.slice(1).toLowerCase()
                           : row.provider;
+                      const providerKey = normalizeProviderKey(row.provider);
                       return (
                         <div className="attempts-ledger-row" key={row.id}>
                           <span className="attempts-cell-muted">{formatDateTime(row.createdAt)}</span>
                           <span className="attempt-provider">
-                            <span className="attempt-provider-avatar">{row.provider.slice(0, 2).toUpperCase()}</span>
+                            <span className={`attempt-provider-avatar attempt-provider-avatar-${providerKey}`}>
+                              {row.provider.slice(0, 2).toUpperCase()}
+                            </span>
                             <span>{providerLabel}</span>
                           </span>
                           <span className="attempt-channel">

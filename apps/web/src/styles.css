@@ -5764,6 +5764,36 @@ div.app-shell.sovereign-mode .btn.attempts-filter-apply.btn.btn-primary:hover:no
   border: 1px solid rgba(139, 157, 255, 0.35);
 }
 
+.attempt-provider-avatar-hotmart {
+  background: linear-gradient(145deg, #5b2a00, #2f1400);
+  color: #ffd8b0;
+  border-color: rgba(255, 143, 51, 0.4);
+}
+
+.attempt-provider-avatar-kiwify {
+  background: linear-gradient(145deg, #08306b, #041a39);
+  color: #d9e8ff;
+  border-color: rgba(96, 165, 250, 0.42);
+}
+
+.attempt-provider-avatar-hubla {
+  background: linear-gradient(145deg, #3a145a, #1f0a31);
+  color: #f0dbff;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+.attempt-provider-avatar-generic {
+  background: linear-gradient(145deg, #163027, #0c1914);
+  color: #d8fbea;
+  border-color: rgba(52, 211, 153, 0.38);
+}
+
+.attempt-provider-avatar-unknown {
+  background: linear-gradient(145deg, #2d2f36, #1f2024);
+  color: #bac3ff;
+  border-color: rgba(139, 157, 255, 0.35);
+}
+
 .attempt-channel {
   display: inline-flex;
   align-items: center;
@@ -7688,6 +7718,30 @@ div.app-shell.sovereign-mode .attempt-provider-avatar {
   background: linear-gradient(145deg, #e0e7ff, #f1f5f9) !important;
   color: #0056c3 !important;
   border-color: rgba(0, 86, 195, 0.25) !important;
+}
+
+div.app-shell.sovereign-mode .attempt-provider-avatar-hotmart {
+  background: linear-gradient(145deg, #fff1e8, #ffe4d1) !important;
+  color: #b45309 !important;
+  border-color: rgba(249, 115, 22, 0.28) !important;
+}
+
+div.app-shell.sovereign-mode .attempt-provider-avatar-kiwify {
+  background: linear-gradient(145deg, #e8f1ff, #dceafe) !important;
+  color: #1d4ed8 !important;
+  border-color: rgba(59, 130, 246, 0.28) !important;
+}
+
+div.app-shell.sovereign-mode .attempt-provider-avatar-hubla {
+  background: linear-gradient(145deg, #f4e8ff, #eddcff) !important;
+  color: #7e22ce !important;
+  border-color: rgba(168, 85, 247, 0.28) !important;
+}
+
+div.app-shell.sovereign-mode .attempt-provider-avatar-generic {
+  background: linear-gradient(145deg, #e7fbf3, #d8f7ea) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
 }
 
 div.app-shell.sovereign-mode .btn.attempts-filter-apply.btn.btn-primary {
