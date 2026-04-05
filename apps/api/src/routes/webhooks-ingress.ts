@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { CanonicalEvent } from "@re/core";
 import { hashWebhookIngressToken } from "@re/core";
 import {
+  looksLikeKiwifyPayload,
   parseHublaToCanonical,
   parseHotmartToCanonical,
   parseKiwifyToCanonical,
@@ -122,10 +123,7 @@ function detectProvider(headers: Record<string, unknown>, body: unknown): z.infe
     return "hubla";
   }
 
-  if (
-    (typeof root.order_id === "string" || typeof root.order_id === "number") &&
-    (typeof root.payment_status === "string" || typeof root.status === "string")
-  ) {
+  if (looksLikeKiwifyPayload(body)) {
     return "kiwify";
   }
 

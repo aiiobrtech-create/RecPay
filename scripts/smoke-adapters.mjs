@@ -98,6 +98,22 @@ function runKiwify() {
     payload,
   });
   expectOutcomeAndIntegration(canonical, "failed", "kiwify", "kiwify");
+
+  const officialTriggerPayload = {
+    event: "compra_recusada",
+    id: "KWF-2",
+    customer: {
+      email: "buyer.official@example.com",
+      name: "Buyer Official",
+    },
+  };
+  const officialCanonical = parseKiwifyToCanonical({
+    tenantId: "tenant-1",
+    idempotencyKey: "key-kwf-2",
+    payloadHash: "hash-kwf-2",
+    payload: officialTriggerPayload,
+  });
+  expectOutcomeAndIntegration(officialCanonical, "failed", "kiwify", "kiwify");
 }
 
 function runHubla() {

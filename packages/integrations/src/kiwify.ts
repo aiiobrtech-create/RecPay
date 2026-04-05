@@ -3,9 +3,20 @@ import type { IncomingHttpHeaders } from "node:http";
 import { z } from "zod";
 import type { CanonicalEvent, PaymentOutcome } from "@re/core";
 
+const KIWIFY_PENDING_EVENTS = new Set(["boleto_gerado", "pix_gerado", "subscription_late"]);
+const KIWIFY_APPROVED_EVENTS = new Set(["compra_aprovada", "subscription_renewed"]);
+const KIWIFY_FAILED_EVENTS = new Set(["compra_recusada", "compra_reembolsada", "chargeback", "subscription_canceled"]);
+const KIWIFY_KNOWN_EVENTS = new Set([
+  ...KIWIFY_PENDING_EVENTS,
+  ...KIWIFY_APPROVED_EVENTS,
+  ...KIWIFY_FAILED_EVENTS,
+  "carrinho_abandonado",
+]);
+
 const kiwifyPayloadSchema = z
   .object({
     event: z.string().optional(),
+    id: z.union([z.string(), z.number()]).optional(),
     order_id: z.union([z.string(), z.number()]).optional(),
     status: z.string().optional(),
     payment_status: z.string().optional(),
@@ -46,6 +57,9 @@ function pickNumber(obj: Record<string, unknown>, keys: string[]): number | unde
 function inferOutcome(rawStatus: string | undefined): PaymentOutcome {
   const status = rawStatus?.toLowerCase() ?? "";
   if (!status) return "unknown";
+  if (KIWIFY_APPROVED_EVENTS.has(status)) return "approved";
+  if (KIWIFY_PENDING_EVENTS.has(status)) return "pending";
+  if (KIWIFY_FAILED_EVENTS.has(status)) return "failed";
   if (["paid", "approved", "completed", "authorized", "success"].some((s) => status.includes(s))) {
     return "approved";
   }
@@ -56,6 +70,23 @@ function inferOutcome(rawStatus: string | undefined): PaymentOutcome {
     return "failed";
   }
   return "unknown";
+}
+
+export function looksLikeKiwifyPayload(payload: unknown): boolean {
+  const root = asObject(payload);
+  const order = asObject(root.order);
+  const event = pickString(root, ["event"])?.toLowerCase();
+
+  if (event && (KIWIFY_KNOWN_EVENTS.has(event) || event.startsWith("order."))) {
+    return true;
+  }
+
+  return Boolean(
+    pickString(root, ["order_id", "transaction_id", "id"]) ||
+      pickString(order, ["id", "order_id"]) ||
+      pickString(root, ["payment_status", "status"]) ||
+      pickString(order, ["payment_status", "status"]),
+  );
 }
 
 function safeEq(a: string, b: string): boolean {
@@ -119,7 +150,7 @@ export function parseKiwifyToCanonical(params: {
   const customer = asObject(root.customer);
 
   const rawStatus =
-    pickString(root, ["payment_status", "status", "event"]) ??
+    pickString(root, ["event", "payment_status", "status"]) ??
     pickString(order, ["status", "payment_status"]);
   const outcome = inferOutcome(rawStatus);
   const amountRaw =
@@ -142,8 +173,9 @@ export function parseKiwifyToCanonical(params: {
     order: {
       externalId:
         pickString(root, ["order_id", "transaction_id"]) ??
+        pickString(root, ["id"]) ??
         pickString(order, ["id", "order_id"]) ??
-        "unknown",
+        params.idempotencyKey,
       amountCents,
       currency: pickString(root, ["currency"]) ?? pickString(order, ["currency"]) ?? "BRL",
       productName: pickString(order, ["product_name", "name"]),
