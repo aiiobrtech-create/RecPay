@@ -143,6 +143,14 @@ function advisoryLockExpr(sessionId: string) {
   return sql`select pg_advisory_xact_lock(${k1}::int, ${k2}::int)`;
 }
 
+function stripeRequestOptionsForSession(session: Stripe.Checkout.Session): Stripe.RequestOptions | undefined {
+  const connectedAccount =
+    "customer_account" in session && typeof session.customer_account === "string" && session.customer_account.trim()
+      ? session.customer_account.trim()
+      : null;
+  return connectedAccount ? { stripeAccount: connectedAccount } : undefined;
+}
+
 async function resolveCheckoutCustomerEmail(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
@@ -155,7 +163,7 @@ async function resolveCheckoutCustomerEmail(
 
   const custRef = session.customer;
   if (typeof custRef === "string") {
-    const c = await stripe.customers.retrieve(custRef);
+    const c = await stripe.customers.retrieve(custRef, stripeRequestOptionsForSession(session));
     if (!c.deleted && "email" in c && typeof c.email === "string" && c.email.trim()) {
       return c.email.trim();
     }
@@ -167,6 +175,7 @@ async function resolveStripeBillingRefs(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
 ): Promise<{ customerId: string | null; paymentMethodId: string | null }> {
+  const requestOptions = stripeRequestOptionsForSession(session);
   const customerId =
     typeof session.customer === "string"
       ? session.customer
@@ -177,7 +186,7 @@ async function resolveStripeBillingRefs(
   let paymentMethodId: string | null = null;
 
   if (typeof session.payment_intent === "string") {
-    const intent = await stripe.paymentIntents.retrieve(session.payment_intent);
+    const intent = await stripe.paymentIntents.retrieve(session.payment_intent, requestOptions);
     paymentMethodId =
       typeof intent.payment_method === "string"
         ? intent.payment_method
@@ -189,7 +198,7 @@ async function resolveStripeBillingRefs(
   }
 
   if (!paymentMethodId && typeof session.subscription === "string") {
-    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    const subscription = await stripe.subscriptions.retrieve(session.subscription, requestOptions);
     paymentMethodId =
       typeof subscription.default_payment_method === "string"
         ? subscription.default_payment_method
@@ -203,7 +212,7 @@ async function resolveStripeBillingRefs(
   }
 
   if (!paymentMethodId && customerId) {
-    const customer = await stripe.customers.retrieve(customerId);
+    const customer = await stripe.customers.retrieve(customerId, requestOptions);
     if (!customer.deleted) {
       const fallbackPm = customer.invoice_settings.default_payment_method;
       paymentMethodId =
@@ -253,6 +262,7 @@ export async function provisionStripeCheckoutSession(params: {
   if (!hasBothNumsOnSession || !hasPlanOnSession) {
     try {
       fullSession = await stripe.checkout.sessions.retrieve(sessionId, {
+        ...stripeRequestOptionsForSession(session),
         expand: ["line_items.data.price"],
       });
     } catch {
