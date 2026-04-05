@@ -45,6 +45,20 @@ const DASHBOARD_URL =
   (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.trim() ||
   (import.meta.env.DEV ? 'http://127.0.0.1:5173' : 'https://app.recpay.com.br');
 
+const STRIPE_CHECKOUT_LINKS = {
+  essential: {
+    monthly: (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_MONTHLY as string | undefined)?.trim() || '',
+    yearly: (import.meta.env.VITE_STRIPE_LINK_ESSENTIAL_YEARLY as string | undefined)?.trim() || '',
+  },
+  growth: {
+    monthly: (import.meta.env.VITE_STRIPE_LINK_GROWTH_MONTHLY as string | undefined)?.trim() || '',
+    yearly: (import.meta.env.VITE_STRIPE_LINK_GROWTH_YEARLY as string | undefined)?.trim() || '',
+  },
+} as const;
+
+const SALES_CONTACT_URL =
+  (import.meta.env.VITE_SALES_CONTACT_URL as string | undefined)?.trim() || '#cta-final';
+
 const PROBLEMA_ITEMS = [
   {
     id: 'card',
@@ -224,6 +238,19 @@ const PRICING_PLANS = [
     highlighted: false,
   },
 ] as const;
+
+function resolvePricingHref(planName: (typeof PRICING_PLANS)[number]['name'], cycle: 'monthly' | 'yearly') {
+  switch (planName) {
+    case 'Essencial':
+      return STRIPE_CHECKOUT_LINKS.essential[cycle];
+    case 'Growth':
+      return STRIPE_CHECKOUT_LINKS.growth[cycle];
+    case 'Scale':
+      return SALES_CONTACT_URL;
+    default:
+      return '';
+  }
+}
 
 function monthlyEquivalent(monthlyList: number) {
   return Math.round(monthlyList * (1 - ANNUAL_DISCOUNT_FRAC));
@@ -1232,6 +1259,7 @@ function PricingSection() {
             const listMonthly = plan.monthlyPrice;
             const displayPerMonth = cycle === 'monthly' ? listMonthly : monthlyEquivalent(listMonthly);
             const yearlyTotal = yearlyCharge(listMonthly);
+            const href = resolvePricingHref(plan.name, cycle);
             return (
               <motion.article
                 key={plan.name}
@@ -1279,17 +1307,19 @@ function PricingSection() {
                   ))}
                 </ul>
 
-                <button
-                  type="button"
+                <a
+                  href={href || '#planos'}
+                  target={href && href.startsWith('http') ? '_blank' : undefined}
+                  rel={href && href.startsWith('http') ? 'noreferrer' : undefined}
                   className={cn(
-                    'mt-10 w-full rounded-full py-4 font-headline text-sm font-bold transition-all',
+                    'mt-10 block w-full rounded-full py-4 text-center font-headline text-sm font-bold transition-all',
                     plan.highlighted
                       ? 'bg-primary text-white shadow-lg shadow-primary/25 hover:opacity-95'
                       : 'border border-slate-200 bg-white text-on-surface hover:border-primary/40 hover:bg-primary/5',
                   )}
                 >
                   {plan.cta}
-                </button>
+                </a>
               </motion.article>
             );
           })}
