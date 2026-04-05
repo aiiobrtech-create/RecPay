@@ -629,8 +629,7 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       await db.delete(webhookIngressTokens).where(eq(webhookIngressTokens.tenantId, tenantId));
       await db.insert(webhookIngressTokens).values({ tenantId, tokenHash });
 
-      const provider = tenant.webhookProviderPreferred ?? "generic";
-      const webhookUrl = `${webhookBaseUrl()}/webhooks/ingress/${tokenPlain}?provider=${provider}`;
+      const webhookUrl = `${webhookBaseUrl()}/webhooks/ingress/${tokenPlain}`;
       const nextConfigs = normalizeTenantIntegrationConfigs(tenant.integrationConfigs);
       for (const providerKey of ["hotmart", "kiwify", "hubla", "generic"] as const) {
         const currentConfig = nextConfigs[providerKey];
@@ -650,7 +649,6 @@ export const tenantLimitsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(201).send({
         ok: true,
         tenantId,
-        provider,
         webhookUrl,
       });
     },

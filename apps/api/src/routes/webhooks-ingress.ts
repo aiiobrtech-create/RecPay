@@ -19,7 +19,7 @@ import { providerIntegrationConfig } from "../lib/tenant-integrations.js";
 import { checkGenericWebhookPolicy } from "../lib/webhook-generic-policy.js";
 import { getEventsQueue } from "../queue-singleton.js";
 
-const providerSchema = z.enum(["hotmart", "kiwify", "hubla", "generic"]).default("generic");
+const providerSchema = z.enum(["hotmart", "kiwify", "hubla", "generic"]);
 
 function bodyLimitBytes(): number {
   const raw = process.env.WEBHOOK_BODY_MAX_BYTES;
@@ -59,6 +59,77 @@ function canonicalToRecord(canonical: CanonicalEvent): Record<string, unknown> {
     payment: canonical.payment,
     rawRef: canonical.rawRef,
   };
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function hasHeader(headers: Record<string, unknown>, name: string): boolean {
+  const value = headers[name];
+  if (Array.isArray(value)) return value.some((item) => typeof item === "string" && item.trim().length > 0);
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function detectProvider(headers: Record<string, unknown>, body: unknown): z.infer<typeof providerSchema> {
+  if (
+    hasHeader(headers, "x-kiwify-token") ||
+    hasHeader(headers, "x-kiwify-webhook-token") ||
+    hasHeader(headers, "x-kiwify-signature")
+  ) {
+    return "kiwify";
+  }
+
+  if (
+    hasHeader(headers, "x-hubla-token") ||
+    hasHeader(headers, "x-hubla-webhook-token") ||
+    hasHeader(headers, "x-hubla-signature")
+  ) {
+    return "hubla";
+  }
+
+  if (
+    hasHeader(headers, "x-hotmart-hottok") ||
+    hasHeader(headers, "x-hotmart-token") ||
+    hasHeader(headers, "hottok") ||
+    hasHeader(headers, "x-hotmart-signature")
+  ) {
+    return "hotmart";
+  }
+
+  const root = asObject(body);
+  const data = asObject(root.data);
+  const hotmartPurchase = asObject(data.purchase);
+  const hotmartBuyer = asObject(data.buyer);
+  if (
+    typeof root.event === "string" &&
+    (Object.keys(hotmartPurchase).length > 0 ||
+      Object.keys(hotmartBuyer).length > 0 ||
+      Object.keys(asObject(root.purchase)).length > 0 ||
+      Object.keys(asObject(root.buyer)).length > 0)
+  ) {
+    return "hotmart";
+  }
+
+  const hublaData = asObject(data);
+  if (
+    (typeof root.id === "string" || typeof root.id === "number") &&
+    (typeof root.payment_status === "string" ||
+      typeof root.status === "string" ||
+      Object.keys(hublaData).length > 0)
+  ) {
+    return "hubla";
+  }
+
+  if (
+    (typeof root.order_id === "string" || typeof root.order_id === "number") &&
+    (typeof root.payment_status === "string" || typeof root.status === "string")
+  ) {
+    return "kiwify";
+  }
+
+  return "generic";
 }
 
 export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
@@ -135,8 +206,8 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      const providerParsed = providerSchema.safeParse(req.query.provider ?? "generic");
-      const provider = providerParsed.success ? providerParsed.data : "generic";
+      const providerParsed = providerSchema.safeParse(req.query.provider);
+      const provider = providerParsed.success ? providerParsed.data : detectProvider(req.headers, req.body);
 
       const genericPolicy = checkGenericWebhookPolicy(provider, req.headers);
       if (!genericPolicy.ok) {
