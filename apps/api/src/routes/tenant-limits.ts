@@ -58,7 +58,12 @@ const bodySchema = z.object({
     const hasEndpoint = Boolean(config.endpointUrl?.trim());
     const hasApiKey = Boolean(config.apiKey?.trim());
     const hasWebhookToken = Boolean(config.webhookToken?.trim());
-    const valid = provider === "hotmart" ? hasEndpoint : hasEndpoint && hasWebhookToken && hasApiKey;
+    const valid =
+      provider === "hotmart"
+        ? hasEndpoint
+        : provider === "kiwify"
+          ? hasEndpoint && hasWebhookToken
+          : hasEndpoint && hasWebhookToken && hasApiKey;
     if (valid) continue;
 
     ctx.addIssue({
@@ -67,6 +72,8 @@ const bodySchema = z.object({
       message:
         provider === "hotmart"
           ? "enabled_provider_requires_endpoint_url"
+          : provider === "kiwify"
+            ? "enabled_provider_requires_webhook_token_and_endpoint_url"
           : "enabled_provider_requires_api_key_webhook_token_and_endpoint_url",
     });
   }

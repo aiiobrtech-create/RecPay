@@ -411,6 +411,9 @@ function providerConfigHasRequiredFields(provider: ProviderKey, config: Provider
     return hasEndpoint;
   }
   const hasWebhookToken = Boolean(webhookToken && webhookToken !== REDACTED_PROVIDER_SECRET);
+  if (provider === "kiwify") {
+    return Boolean(hasWebhookToken && hasEndpoint);
+  }
   return Boolean(apiKey && hasWebhookToken && hasEndpoint && apiKey !== REDACTED_PROVIDER_SECRET);
 }
 
@@ -422,6 +425,15 @@ function providerFieldCopy(provider: ProviderKey): ProviderFieldCopy {
       webhookTokenLabel: "",
       webhookTokenPlaceholder: "",
       missingFieldsMessage: "Preencha o endereco antes de ativar.",
+    };
+  }
+  if (provider === "kiwify") {
+    return {
+      apiKeyLabel: "",
+      apiKeyPlaceholder: "",
+      webhookTokenLabel: "Token de assinatura do webhook",
+      webhookTokenPlaceholder: "Token fornecido pela plataforma",
+      missingFieldsMessage: "Preencha token e endereco antes de ativar.",
     };
   }
   return {
@@ -4624,7 +4636,7 @@ export function App() {
                     </button>
                   </div>
                   <div className="filters integrations-config-grid">
-                    {providerEditing !== "hotmart" && (
+                    {providerEditing !== "hotmart" && providerEditing !== "kiwify" && (
                       <label>
                         {providerFieldCopy(providerEditing).apiKeyLabel}
                         <input
