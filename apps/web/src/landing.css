@@ -887,7 +887,7 @@ main {
 .final-cta-card h2 {
   margin-top: 16px;
   font-size: clamp(2rem, 4vw, 3.6rem);
-  max-width: 12ch;
+  max-width: 16ch;
   line-height: 0.97;
 }
 

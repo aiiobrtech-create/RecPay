@@ -446,8 +446,8 @@ export function LandingPageApp() {
         <section className="section final-cta-section" id="cta-final" data-reveal>
           <div className="final-cta-card">
             <div>
-              <span>CTA final</span>
-              <h2>Se sua operação perde vendas no checkout, você pode recuperar isso automaticamente.</h2>
+              <span>Recuperação automática</span>
+              <h2>Recupere vendas perdidas no checkout com automação.</h2>
               <p>Veja onde sua receita está vazando e simule o impacto no seu caixa.</p>
             </div>
             <div className="final-cta-actions">

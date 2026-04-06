@@ -1838,13 +1838,13 @@ export default function App() {
             variants={enter.item}
             className="relative z-10 block font-headline text-xs font-bold uppercase tracking-widest text-white/70"
           >
-            CTA final
+            Recuperação automática
           </motion.span>
           <motion.h2
             variants={enter.item}
             className="relative z-10 mb-6 mt-4 font-headline text-2xl font-bold leading-snug tracking-tight text-white sm:mb-10 sm:mt-6 sm:text-4xl sm:leading-tight lg:text-6xl"
           >
-            Se sua operação perde vendas no checkout, você pode recuperar isso automaticamente.
+            Recupere vendas perdidas no checkout com automação.
           </motion.h2>
           <motion.div variants={enter.item} className="relative z-10 flex w-full max-w-md flex-col justify-center gap-3 sm:max-w-none sm:flex-row sm:gap-4">
             <a
