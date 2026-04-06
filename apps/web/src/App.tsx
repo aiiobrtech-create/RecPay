@@ -422,7 +422,7 @@ function providerConfigHasRequiredFields(provider: ProviderKey, config: Provider
   if (provider === "hotmart") {
     return hasEndpoint;
   }
-  if (provider === "kiwify") {
+  if (provider === "kiwify" || provider === "hubla") {
     return Boolean(hasWebhookToken && hasEndpoint);
   }
   return Boolean(hasApiKey && hasWebhookToken && hasEndpoint);
@@ -445,6 +445,15 @@ function providerFieldCopy(provider: ProviderKey): ProviderFieldCopy {
       webhookTokenLabel: "Token de assinatura do webhook",
       webhookTokenPlaceholder: "Token fornecido pela plataforma",
       missingFieldsMessage: "Preencha token e endereco antes de ativar.",
+    };
+  }
+  if (provider === "hubla") {
+    return {
+      apiKeyLabel: "",
+      apiKeyPlaceholder: "",
+      webhookTokenLabel: "Token de autenticacao do webhook",
+      webhookTokenPlaceholder: "Token fornecido pela Hubla",
+      missingFieldsMessage: "Confirme o token da Hubla e a URL de webhook gerada.",
     };
   }
   return {
@@ -1779,7 +1788,7 @@ export function App() {
       return;
     }
     if (!providerConfigHasRequiredFields(provider, config)) {
-      pushToast("Preencha chave, token e endereço antes do teste.");
+      pushToast(providerFieldCopy(provider).missingFieldsMessage);
       openProviderConfig(provider);
       return;
     }
@@ -4670,7 +4679,7 @@ export function App() {
                     </button>
                   </div>
                   <div className="filters integrations-config-grid">
-                    {providerEditing !== "hotmart" && providerEditing !== "kiwify" && (
+                    {providerEditing === "generic" && (
                       <label>
                         {providerFieldCopy(providerEditing).apiKeyLabel}
                         <input
@@ -4700,19 +4709,25 @@ export function App() {
                         />
                       </label>
                     )}
-                    <label>
-                      URL de retorno (callback)
-                      <input
-                        value={providerConfigDraft.endpointUrl}
-                        onChange={(event) =>
-                          setProviderConfigDraft((current) => ({
-                            ...current,
-                            endpointUrl: event.target.value,
-                          }))
-                        }
-                        placeholder="https://api.seudominio.com/webhooks/..."
-                      />
-                    </label>
+                    {providerEditing !== "hubla" ? (
+                      <label>
+                        URL de retorno (callback)
+                        <input
+                          value={providerConfigDraft.endpointUrl}
+                          onChange={(event) =>
+                            setProviderConfigDraft((current) => ({
+                              ...current,
+                              endpointUrl: event.target.value,
+                            }))
+                          }
+                          placeholder="https://api.seudominio.com/webhooks/..."
+                        />
+                      </label>
+                    ) : (
+                      <p className="inline-help">
+                        A URL do webhook é gerada em Configurações e aplicada automaticamente à Hubla.
+                      </p>
+                    )}
                   </div>
                   <div className="filter-actions settings-actions">
                     <button

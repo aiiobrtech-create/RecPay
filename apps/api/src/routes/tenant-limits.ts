@@ -61,7 +61,7 @@ const bodySchema = z.object({
     const valid =
       provider === "hotmart"
         ? hasEndpoint
-        : provider === "kiwify"
+        : provider === "kiwify" || provider === "hubla"
           ? hasEndpoint && hasWebhookToken
           : hasEndpoint && hasWebhookToken && hasApiKey;
     if (valid) continue;
@@ -72,7 +72,7 @@ const bodySchema = z.object({
       message:
         provider === "hotmart"
           ? "enabled_provider_requires_endpoint_url"
-          : provider === "kiwify"
+          : provider === "kiwify" || provider === "hubla"
             ? "enabled_provider_requires_webhook_token_and_endpoint_url"
           : "enabled_provider_requires_api_key_webhook_token_and_endpoint_url",
     });
