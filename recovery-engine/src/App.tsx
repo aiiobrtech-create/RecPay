@@ -1806,7 +1806,7 @@ export default function App() {
               </div>
               <div className="mt-auto pt-10">
                 <div className="font-headline text-xl font-bold tabular-nums whitespace-nowrap text-primary sm:text-2xl md:text-3xl">
-                  Até 20% da perda recuperada
+                  Mais receita de volta no caixa
                 </div>
               </div>
             </motion.div>
