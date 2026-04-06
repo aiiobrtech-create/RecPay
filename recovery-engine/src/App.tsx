@@ -1783,8 +1783,8 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <div className="font-headline text-2xl font-bold tabular-nums text-on-surface/20 sm:text-3xl md:text-4xl">
-                  Recuperação: 0%
+                <div className="font-headline text-2xl font-bold tabular-nums whitespace-nowrap text-on-surface/20 sm:text-3xl md:text-4xl">
+                  0% recuperado
                 </div>
               </div>
             </motion.div>
@@ -1805,8 +1805,8 @@ export default function App() {
                 ))}
               </div>
               <div className="mt-auto pt-10">
-                <div className="font-headline text-2xl font-bold tabular-nums text-primary sm:text-3xl md:text-4xl">
-                  Recuperação estimada: 20% da perda
+                <div className="font-headline text-xl font-bold tabular-nums whitespace-nowrap text-primary sm:text-2xl md:text-3xl">
+                  Até 20% da perda recuperada
                 </div>
               </div>
             </motion.div>

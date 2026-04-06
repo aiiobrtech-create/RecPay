@@ -824,10 +824,11 @@ main {
 }
 
 .before-after-stat strong {
-  font-size: 1rem;
-  line-height: 1.35;
+  font-size: 0.95rem;
+  line-height: 1.2;
   font-weight: 700;
   color: var(--lp-ink);
+  white-space: nowrap;
 }
 
 .faq-list {

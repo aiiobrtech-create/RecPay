@@ -412,7 +412,7 @@ export function LandingPageApp() {
                 </ul>
                 <div className="before-after-stat">
                   <span className="before-after-stat-label">Cenário com recuperação ativa</span>
-                  <strong>Até 20% da perda pode voltar para o caixa</strong>
+                  <strong>Até 20% da perda recuperada</strong>
                 </div>
               </>
             )}
