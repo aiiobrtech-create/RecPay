@@ -8,7 +8,6 @@ import {
   Coins,
   CreditCard,
   CursorClick,
-  Gauge,
   Lightning,
   Lock,
   PlayCircle,
@@ -344,19 +343,25 @@ export function LandingPageApp() {
 
           <div className="flow-grid">
             <FlowCard
-              icon={<Gauge size={22} />}
+              step={1}
               title="Detecta"
-              text="Monitoramos cada requisição no seu checkout e identificamos instantaneamente cartão negado ou PIX não pago."
+              text="Monitoramos cada requisição no seu checkout. Identificamos instantaneamente quando um cartão é negado ou um PIX não é pago."
+              imageSrc="/landing/detecta.jpg"
+              imageAlt="Ilustração: monitoramento e detecção de falhas no checkout"
             />
             <FlowCard
-              icon={<Lightning size={22} />}
+              step={2}
               title="Aciona"
-              text="Nossa IA envia no WhatsApp uma mensagem personalizada com um novo link de pagamento, no momento ideal."
+              text="Nossa IA envia no WhatsApp uma mensagem personalizada com um novo link de pagamento, no momento ideal para recuperar a venda."
+              imageSrc="/landing/aciona.jpg"
+              imageAlt="Ilustração: envio da mensagem de recuperação no WhatsApp"
             />
             <FlowCard
-              icon={<ChartLineUp size={22} />}
+              step={3}
               title="Mostra"
               text="Você acompanha em tempo real cada venda recuperada e o impacto direto na sua receita através do painel."
+              imageSrc="/landing/mostra.jpg"
+              imageAlt="Ilustração: painel com resultados e métricas em tempo real"
             />
           </div>
         </section>
@@ -504,12 +509,29 @@ function RangeControl({
   );
 }
 
-function FlowCard({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+function FlowCard({
+  step,
+  title,
+  text,
+  imageSrc,
+  imageAlt,
+}: {
+  step: number;
+  title: string;
+  text: string;
+  imageSrc: string;
+  imageAlt: string;
+}) {
   return (
     <article className="flow-card" data-reveal>
-      <div className="flow-icon">{icon}</div>
+      <div className="flow-step" aria-hidden="true">
+        {step}
+      </div>
       <h3>{title}</h3>
       <p>{text}</p>
+      <div className="flow-card-image-wrap">
+        <img src={imageSrc} alt={imageAlt} loading="lazy" decoding="async" width={800} height={600} />
+      </div>
     </article>
   );
 }

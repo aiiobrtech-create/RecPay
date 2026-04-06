@@ -1699,20 +1699,23 @@ export default function App() {
                 step: "1",
                 title: "Detecta",
                 desc: "Monitoramos cada requisição no seu checkout. Identificamos instantaneamente quando um cartão é negado ou um PIX não é pago.",
-                img: "https://picsum.photos/seed/detect/800/600"
+                img: "/landing/detecta.jpg",
+                alt: "Ilustração: monitoramento e detecção de falhas no checkout",
               },
               {
                 step: "2",
                 title: "Aciona",
                 desc: "Nossa IA envia no WhatsApp uma mensagem personalizada com um novo link de pagamento, no momento ideal para recuperar a venda.",
-                img: "https://picsum.photos/seed/action/800/600"
+                img: "/landing/aciona.jpg",
+                alt: "Ilustração: envio da mensagem de recuperação no WhatsApp",
               },
               {
                 step: "3",
                 title: "Mostra",
                 desc: "Você acompanha em tempo real cada venda recuperada e o impacto direto na sua receita através do painel.",
-                img: "https://picsum.photos/seed/results/800/600"
-              }
+                img: "/landing/mostra.jpg",
+                alt: "Ilustração: painel com resultados e métricas em tempo real",
+              },
             ].map((item, i) => (
               <motion.div
                 key={i}
@@ -1729,9 +1732,10 @@ export default function App() {
                 <div className="mt-auto pt-8">
                   <img
                     src={item.img}
-                    alt=""
-                    className="h-48 w-full rounded-2xl object-cover grayscale transition-all duration-500 group-hover:grayscale-0"
-                    referrerPolicy="no-referrer"
+                    alt={item.alt}
+                    className="h-48 w-full rounded-2xl object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </motion.div>
@@ -1881,16 +1885,16 @@ export default function App() {
             className="flex flex-wrap justify-center gap-8 text-sm font-medium"
             aria-label="Rodapé"
           >
-            <a href="#" className="text-on-surface-variant transition-colors hover:text-primary">
+            <a href="/#/termos-de-uso" className="text-on-surface-variant transition-colors hover:text-primary">
               Termos de Uso
             </a>
-            <a href="#" className="text-on-surface-variant transition-colors hover:text-primary">
+            <a href="/#/privacidade" className="text-on-surface-variant transition-colors hover:text-primary">
               Privacidade
             </a>
-            <a href="#" className="text-on-surface-variant transition-colors hover:text-primary">
+            <a href="mailto:suporte@recpay.com.br" className="text-on-surface-variant transition-colors hover:text-primary">
               Contato
             </a>
-            <a href="#" className="text-on-surface-variant transition-colors hover:text-primary">
+            <a href="https://app.recpay.com.br" className="text-on-surface-variant transition-colors hover:text-primary">
               Documentação
             </a>
           </motion.nav>

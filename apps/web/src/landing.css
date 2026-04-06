@@ -761,6 +761,39 @@ main {
   background: linear-gradient(135deg, var(--lp-accent), var(--lp-primary-strong));
 }
 
+.flow-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--lp-ink);
+  background: linear-gradient(135deg, var(--lp-accent), var(--lp-primary-strong));
+}
+
+.flow-card-image-wrap {
+  position: relative;
+  z-index: 1;
+  margin-top: 20px;
+  border-radius: 18px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: rgba(8, 6, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.flow-card-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
 .outcomes-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
