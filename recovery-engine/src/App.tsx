@@ -972,7 +972,7 @@ const Navbar = () => {
  * Fração da perda no checkout que vira recuperação no cenário ilustrativo.
  * Alinhado à faixa ~10–20% do vazamento em materiais de mercado (ver docs/PRECIFICACAO.md) — não é teto nem garantia.
  */
-const SIM_RECUPERACAO_FRAC = 0.35;
+const SIM_RECUPERACAO_FRAC = 0.45;
 
 const formatBRL = (n: number) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -1106,7 +1106,7 @@ const Simulator = () => {
                   R$ {formatBRL(recuperacaoPotencial)}
                 </div>
                 <p className="mt-2 text-xs opacity-80 max-w-md leading-relaxed">
-                  Cenário ilustrativo: {Math.round(SIM_RECUPERACAO_FRAC * 100)}% da perda acima — número orientativo; o real depende do funil e da operação.
+                  Cenário hipotético: {Math.round(SIM_RECUPERACAO_FRAC * 100)}% da perda acima — número orientativo; o real depende do funil e da operação.
                 </p>
                 <div className="mt-6 rounded-xl bg-white/10 p-4 sm:p-5">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 font-headline sm:text-xs">
