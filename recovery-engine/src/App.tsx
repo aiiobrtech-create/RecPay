@@ -972,7 +972,7 @@ const Navbar = () => {
  * Fração da perda no checkout que vira recuperação no cenário ilustrativo.
  * Alinhado à faixa ~10–20% do vazamento em materiais de mercado (ver docs/PRECIFICACAO.md) — não é teto nem garantia.
  */
-const SIM_RECUPERACAO_FRAC = 0.2;
+const SIM_RECUPERACAO_FRAC = 0.35;
 
 const formatBRL = (n: number) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
