@@ -1550,6 +1550,76 @@ select.page-size-select:focus {
   padding: 16px;
 }
 
+.recovery-link-item--compact {
+  padding: 0;
+  overflow: hidden;
+}
+
+.recovery-link-item-summary {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.recovery-link-item-summary::-webkit-details-marker {
+  display: none;
+}
+
+.recovery-link-item-summary-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.recovery-link-item-head--compact {
+  margin-bottom: 8px;
+}
+
+.recovery-link-item-summary-line {
+  margin: 6px 0 0;
+}
+
+.recovery-link-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recovery-link-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, rgba(77, 104, 235, 0.12) 55%, rgba(255, 255, 255, 0.04));
+  border: 1px solid color-mix(in srgb, rgba(77, 104, 235, 0.24) 55%, rgba(255, 255, 255, 0.08));
+  color: #aeb4c8;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.recovery-link-summary-chevron {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #8e90a0;
+  transition: transform 160ms ease;
+}
+
+.recovery-link-item[open] .recovery-link-summary-chevron {
+  transform: rotate(180deg);
+}
+
+.recovery-link-item-body {
+  padding: 0 16px 16px;
+}
+
+.recovery-link-item-actions {
+  margin-top: 12px;
+}
+
 .recovery-link-empty {
   display: flex;
   flex-direction: column;
@@ -1623,6 +1693,20 @@ div.app-shell.sovereign-mode .recovery-link-item {
   background: #ffffff !important;
   color: #334155 !important;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+}
+
+div.app-shell.sovereign-mode .recovery-link-item-summary {
+  background: transparent !important;
+}
+
+div.app-shell.sovereign-mode .recovery-link-summary-chip {
+  color: #334155 !important;
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+div.app-shell.sovereign-mode .recovery-link-summary-chevron {
+  color: #64748b !important;
 }
 
 div.app-shell.sovereign-mode .recovery-link-empty {
@@ -1701,7 +1785,15 @@ div.app-shell.sovereign-mode .recovery-link-section-title {
     grid-column: span 1;
   }
 
-  .recovery-link-item-head {
+  .recovery-link-item-summary {
+    padding: 14px;
+  }
+
+  .recovery-link-item-body {
+    padding: 0 14px 14px;
+  }
+
+  .recovery-link-item-head--compact {
     flex-direction: column;
   }
 }

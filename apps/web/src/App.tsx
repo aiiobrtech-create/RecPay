@@ -535,6 +535,13 @@ function recoveryLinkToDraft(item: DashboardRecoveryLink): RecoveryLinkDraft {
   };
 }
 
+function normalizeRecoveryLinkUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function recoveryLinkStatusLabel(status: RecoveryLinkApprovalStatus): string {
   switch (status) {
     case "approved":
@@ -2351,28 +2358,39 @@ export function App() {
     }
   }, [targetTenantId, accessToken, baseUrl, dashboardAuthGate]);
 
+  const loadRecoveryLinksForTenant = useCallback(
+    async (tenantId: string) => {
+      if (!tenantId) return;
+      if (dashboardAuthGate && !accessToken?.trim()) return;
+      setRecoveryLinksLoading(true);
+      try {
+        const response = await dashboardFetch(`${baseUrl}/admin/tenants/${tenantId}/recovery-links`, accessToken);
+        const payload = (await readResponseJson(response)) as {
+          ok?: boolean;
+          items?: DashboardRecoveryLink[];
+          error?: string;
+        } | null;
+        if (!response.ok || !payload?.ok || !Array.isArray(payload.items)) {
+          throw new Error(payload?.error || `HTTP ${response.status}`);
+        }
+        setRecoveryLinksList(payload.items);
+      } catch (error) {
+        pushToast(
+          `Falha ao carregar links de recuperação: ${error instanceof Error ? error.message : "erro desconhecido"}`,
+        );
+        setRecoveryLinksList([]);
+      } finally {
+        setRecoveryLinksLoading(false);
+      }
+    },
+    [accessToken, baseUrl, dashboardAuthGate],
+  );
+
   const loadRecoveryLinks = useCallback(async () => {
     if (!targetTenantId) return;
     if (dashboardAuthGate && !accessToken?.trim()) return;
-    setRecoveryLinksLoading(true);
-    try {
-      const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/recovery-links`, accessToken);
-      const payload = (await readResponseJson(response)) as {
-        ok?: boolean;
-        items?: DashboardRecoveryLink[];
-        error?: string;
-      } | null;
-      if (!response.ok || !payload?.ok || !Array.isArray(payload.items)) {
-        throw new Error(payload?.error || `HTTP ${response.status}`);
-      }
-      setRecoveryLinksList(payload.items);
-    } catch (error) {
-      pushToast(`Falha ao carregar links de recuperação: ${error instanceof Error ? error.message : "erro desconhecido"}`);
-      setRecoveryLinksList([]);
-    } finally {
-      setRecoveryLinksLoading(false);
-    }
-  }, [targetTenantId, accessToken, baseUrl, dashboardAuthGate]);
+    await loadRecoveryLinksForTenant(targetTenantId);
+  }, [accessToken, dashboardAuthGate, loadRecoveryLinksForTenant, targetTenantId]);
 
   const loadAdminRecoveryLinks = useCallback(async () => {
     if (!canReviewRecoveryLinks) {
@@ -2449,7 +2467,7 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: newRecoveryLinkDraft.label.trim(),
-          url: newRecoveryLinkDraft.url.trim(),
+          url: normalizeRecoveryLinkUrl(newRecoveryLinkDraft.url),
           platform: newRecoveryLinkDraft.platform.trim() || null,
           triggerEventType: newRecoveryLinkDraft.triggerEventType.trim() || null,
           productName: newRecoveryLinkDraft.productName.trim() || null,
@@ -2457,13 +2475,23 @@ export function App() {
           submittedBy: newRecoveryLinkDraft.submittedBy.trim() || null,
         }),
       });
-      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        error?: string;
+        item?: DashboardRecoveryLink;
+      } | null;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       pushToast("Link enviado para revisão.");
       setNewRecoveryLinkDraft(emptyRecoveryLinkDraft());
-      await loadRecoveryLinks();
+      if (payload.item?.tenantId) {
+        setTenantId(payload.item.tenantId);
+        setSubmittedTenantId(payload.item.tenantId);
+        await loadRecoveryLinksForTenant(payload.item.tenantId);
+      } else {
+        await loadRecoveryLinks();
+      }
     } catch (error) {
       pushToast(`Falha ao criar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
     } finally {
@@ -2502,7 +2530,7 @@ export function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             label: draft.label.trim(),
-            url: draft.url.trim(),
+            url: normalizeRecoveryLinkUrl(draft.url),
             platform: draft.platform.trim() || null,
             triggerEventType: draft.triggerEventType.trim() || null,
             productName: draft.productName.trim() || null,
@@ -2515,12 +2543,19 @@ export function App() {
         ok?: boolean;
         error?: string;
         approvalReset?: boolean;
+        item?: DashboardRecoveryLink;
       } | null;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       pushToast(payload?.approvalReset ? "Link alterado e reenviado para revisão." : "Link salvo.");
-      await loadRecoveryLinks();
+      if (payload.item?.tenantId) {
+        setTenantId(payload.item.tenantId);
+        setSubmittedTenantId(payload.item.tenantId);
+        await loadRecoveryLinksForTenant(payload.item.tenantId);
+      } else {
+        await loadRecoveryLinks();
+      }
     } catch (error) {
       pushToast(`Falha ao salvar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
     } finally {
@@ -2543,12 +2578,22 @@ export function App() {
           approvalNote: draft.approvalNote.trim() || undefined,
         }),
       });
-      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        error?: string;
+        item?: DashboardRecoveryLink;
+      } | null;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       pushToast("Link aprovado.");
-      await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+      if (payload.item?.tenantId) {
+        setTenantId(payload.item.tenantId);
+        setSubmittedTenantId(payload.item.tenantId);
+        await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinksForTenant(payload.item.tenantId)]);
+      } else {
+        await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+      }
     } catch (error) {
       pushToast(`Falha ao aprovar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
     } finally {
@@ -2575,12 +2620,22 @@ export function App() {
           approvalNote: draft.approvalNote.trim(),
         }),
       });
-      const payload = (await readResponseJson(response)) as { ok?: boolean; error?: string } | null;
+      const payload = (await readResponseJson(response)) as {
+        ok?: boolean;
+        error?: string;
+        item?: DashboardRecoveryLink;
+      } | null;
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       pushToast("Link rejeitado.");
-      await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+      if (payload.item?.tenantId) {
+        setTenantId(payload.item.tenantId);
+        setSubmittedTenantId(payload.item.tenantId);
+        await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinksForTenant(payload.item.tenantId)]);
+      } else {
+        await Promise.all([loadAdminRecoveryLinks(), loadRecoveryLinks()]);
+      }
     } catch (error) {
       pushToast(`Falha ao rejeitar link: ${error instanceof Error ? error.message : "erro desconhecido"}`);
     } finally {
@@ -5425,6 +5480,9 @@ export function App() {
                         disabled={settingsMutationsDisabled}
                         placeholder="https://..."
                       />
+                      <span className="inline-help subtle">
+                        Pode colar apenas o domínio; o sistema completa `https://` automaticamente.
+                      </span>
                     </label>
                     <label className="account-field">
                       <span className="account-label">Gatilho</span>
@@ -5520,153 +5578,176 @@ export function App() {
                         const draft = recoveryLinkDrafts[item.id];
                         if (!draft) return null;
                         return (
-                          <section key={item.id} className="recovery-link-item">
-                            <div className="recovery-link-item-head">
-                              <div>
-                                <strong>{item.label}</strong>
-                                <p className="inline-help subtle">
-                                  Atualizado em {formatDateTime(item.updatedAt)}
-                                  {item.platform ? ` • ${item.platform}` : ""}
-                                </p>
+                          <details key={item.id} className="recovery-link-item recovery-link-item--compact">
+                            <summary className="recovery-link-item-summary">
+                              <div className="recovery-link-item-summary-copy">
+                                <div className="recovery-link-item-head recovery-link-item-head--compact">
+                                  <div>
+                                    <strong>{item.label}</strong>
+                                    <p className="inline-help subtle recovery-link-item-summary-line">
+                                      {item.platform ? `${item.platform} • ` : ""}
+                                      Atualizado em {formatDateTime(item.updatedAt)}
+                                    </p>
+                                  </div>
+                                  <span className={`pill pill-${recoveryLinkStatusTone(item.approvalStatus)}`}>
+                                    {recoveryLinkStatusLabel(item.approvalStatus)}
+                                  </span>
+                                </div>
+                                <div className="recovery-link-summary-meta">
+                                  <span className="recovery-link-summary-chip">
+                                    {draft.url || item.url || "URL não informada"}
+                                  </span>
+                                  <span className="recovery-link-summary-chip">
+                                    Gatilho:{" "}
+                                    {draft.triggerEventType
+                                      ? recoveryTriggerLabelMap[draft.triggerEventType] ?? draft.triggerEventType
+                                      : "todos os gatilhos"}
+                                  </span>
+                                  <span className="recovery-link-summary-chip">
+                                    Responsável: {draft.submittedBy || "não informado"}
+                                  </span>
+                                </div>
                               </div>
-                              <span className={`pill pill-${recoveryLinkStatusTone(item.approvalStatus)}`}>
-                                {recoveryLinkStatusLabel(item.approvalStatus)}
+                              <span className="material-symbols-outlined recovery-link-summary-chevron" aria-hidden="true">
+                                expand_more
                               </span>
-                            </div>
-                            <div className="recovery-link-edit-grid">
-                              <label className="account-field">
-                                <span className="account-label">Nome interno</span>
-                                <input
-                                  className="account-input"
-                                  value={draft.label}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, label: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field">
-                                <span className="account-label">Plataforma</span>
-                                <input
-                                  className="account-input"
-                                  value={draft.platform}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, platform: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field account-field-span2">
-                                <span className="account-label">URL do link</span>
-                                <input
-                                  className="account-input"
-                                  value={draft.url}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, url: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field">
-                                <span className="account-label">Gatilho</span>
-                                <select
-                                  className="account-input"
-                                  value={draft.triggerEventType}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, triggerEventType: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                >
-                                  <option value="">Todos os gatilhos de recuperação</option>
-                                  {triggerCatalog.map((entry) => (
-                                    <option key={entry.value} value={entry.value}>
-                                      {entry.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label className="account-field">
-                                <span className="account-label">Produto/oferta</span>
-                                <input
-                                  className="account-input"
-                                  value={draft.productName}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, productName: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field">
-                                <span className="account-label">Responsável</span>
-                                <input
-                                  className="account-input"
-                                  value={draft.submittedBy}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, submittedBy: event.target.value },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                              <label className="account-field account-field--checkbox">
-                                <span className="account-label">Ativo</span>
-                                <input
-                                  type="checkbox"
-                                  checked={draft.active}
-                                  onChange={(event) =>
-                                    setRecoveryLinkDrafts((current) => ({
-                                      ...current,
-                                      [item.id]: { ...draft, active: event.target.checked },
-                                    }))
-                                  }
-                                  disabled={settingsMutationsDisabled}
-                                />
-                              </label>
-                            </div>
-                            <div className="recovery-link-meta">
-                              <span>
-                                Escopo:{" "}
-                                {draft.triggerEventType
-                                  ? recoveryTriggerLabelMap[draft.triggerEventType] ?? draft.triggerEventType
-                                  : "todos os gatilhos"}
-                              </span>
-                              <span>Ordem na fila (operação): {item.priority}</span>
-                              {item.reviewedAt ? (
+                            </summary>
+                            <div className="recovery-link-item-body">
+                              <div className="recovery-link-edit-grid">
+                                <label className="account-field">
+                                  <span className="account-label">Nome interno</span>
+                                  <input
+                                    className="account-input"
+                                    value={draft.label}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, label: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                                <label className="account-field">
+                                  <span className="account-label">Plataforma</span>
+                                  <input
+                                    className="account-input"
+                                    value={draft.platform}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, platform: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                                <label className="account-field account-field-span2">
+                                  <span className="account-label">URL do link</span>
+                                  <input
+                                    className="account-input"
+                                    value={draft.url}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, url: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                                <label className="account-field">
+                                  <span className="account-label">Gatilho</span>
+                                  <select
+                                    className="account-input"
+                                    value={draft.triggerEventType}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, triggerEventType: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  >
+                                    <option value="">Todos os gatilhos de recuperação</option>
+                                    {triggerCatalog.map((entry) => (
+                                      <option key={entry.value} value={entry.value}>
+                                        {entry.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="account-field">
+                                  <span className="account-label">Produto/oferta</span>
+                                  <input
+                                    className="account-input"
+                                    value={draft.productName}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, productName: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                                <label className="account-field">
+                                  <span className="account-label">Responsável</span>
+                                  <input
+                                    className="account-input"
+                                    value={draft.submittedBy}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, submittedBy: event.target.value },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                                <label className="account-field account-field--checkbox">
+                                  <span className="account-label">Ativo</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.active}
+                                    onChange={(event) =>
+                                      setRecoveryLinkDrafts((current) => ({
+                                        ...current,
+                                        [item.id]: { ...draft, active: event.target.checked },
+                                      }))
+                                    }
+                                    disabled={settingsMutationsDisabled}
+                                  />
+                                </label>
+                              </div>
+                              <div className="recovery-link-meta">
                                 <span>
-                                  Revisado em {formatDateTime(item.reviewedAt)}
-                                  {item.reviewedBy ? ` por ${item.reviewedBy}` : ""}
+                                  Escopo:{" "}
+                                  {draft.triggerEventType
+                                    ? recoveryTriggerLabelMap[draft.triggerEventType] ?? draft.triggerEventType
+                                    : "todos os gatilhos"}
                                 </span>
-                              ) : null}
-                              {item.approvalNote ? <span>Observação: {item.approvalNote}</span> : null}
+                                <span>Ordem na fila (operação): {item.priority}</span>
+                                {item.reviewedAt ? (
+                                  <span>
+                                    Revisado em {formatDateTime(item.reviewedAt)}
+                                    {item.reviewedBy ? ` por ${item.reviewedBy}` : ""}
+                                  </span>
+                                ) : null}
+                                {item.approvalNote ? <span>Observação: {item.approvalNote}</span> : null}
+                              </div>
+                              <div className="filter-actions settings-actions recovery-link-item-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={() => void saveRecoveryLink(item.id)}
+                                  disabled={settingsMutationsDisabled || recoveryLinkSavingId === item.id}
+                                >
+                                  {recoveryLinkSavingId === item.id ? "Salvando..." : "Salvar link"}
+                                </button>
+                              </div>
                             </div>
-                            <div className="filter-actions settings-actions">
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => void saveRecoveryLink(item.id)}
-                                disabled={settingsMutationsDisabled || recoveryLinkSavingId === item.id}
-                              >
-                                {recoveryLinkSavingId === item.id ? "Salvando..." : "Salvar link"}
-                              </button>
-                            </div>
-                          </section>
+                          </details>
                         );
                       })
                     )}

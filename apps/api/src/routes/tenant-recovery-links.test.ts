@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requiresReapproval } from "./tenant-recovery-links.js";
+import { normalizeRecoveryLinkUrlInput, requiresReapproval } from "./tenant-recovery-links.js";
 
 const baseLink = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -39,5 +39,19 @@ describe("requiresReapproval", () => {
         productName: baseLink.productName,
       }),
     ).toBe(false);
+  });
+});
+
+describe("normalizeRecoveryLinkUrlInput", () => {
+  it("adds https to bare domains", () => {
+    expect(normalizeRecoveryLinkUrlInput("www.danvieiradesigner.com")).toBe(
+      "https://www.danvieiradesigner.com",
+    );
+  });
+
+  it("keeps full urls untouched", () => {
+    expect(normalizeRecoveryLinkUrlInput("https://example.com/path")).toBe(
+      "https://example.com/path",
+    );
   });
 });

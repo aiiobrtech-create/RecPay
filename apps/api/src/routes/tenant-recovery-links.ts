@@ -21,9 +21,17 @@ const paramsLink = z.object({
 
 const triggerSchema = z.enum(RECOVERY_SALES_TRIGGER_EVENTS as unknown as [string, ...string[]]);
 
+export function normalizeRecoveryLinkUrlInput(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 const recoveryLinkBody = z.object({
   label: z.string().min(1).max(200),
-  url: z.string().url().max(2000),
+  url: z.preprocess(normalizeRecoveryLinkUrlInput, z.string().url().max(2000)),
   platform: z.string().trim().min(1).max(80).nullable().optional(),
   triggerEventType: triggerSchema.nullable().optional(),
   productName: z.string().trim().min(1).max(200).nullable().optional(),
