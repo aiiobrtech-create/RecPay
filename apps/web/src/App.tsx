@@ -758,6 +758,7 @@ export function App() {
   const [newRecoveryLinkDraft, setNewRecoveryLinkDraft] = useState<RecoveryLinkDraft>(emptyRecoveryLinkDraft());
   const [recoveryLinkSavingId, setRecoveryLinkSavingId] = useState<string | null>(null);
   const [recoveryLinkCreating, setRecoveryLinkCreating] = useState(false);
+  const [recoveryLinkCreateModalOpen, setRecoveryLinkCreateModalOpen] = useState(false);
   const [adminReviewStatusFilter, setAdminReviewStatusFilter] = useState<RecoveryLinkApprovalStatus | "all">(
     "pending_review",
   );
@@ -925,7 +926,7 @@ export function App() {
         if (cancelled || !response.ok || !body?.ok || !Array.isArray(body.tenants)) return;
         setServerTenants(body.tenants);
         setCanReviewRecoveryLinks(Boolean(body.operationalAccess?.canReviewRecoveryLinks));
-        if (body.authMode === "bearer" && body.tenants.length === 1) {
+        if (body.tenants.length === 1) {
           const id = body.tenants[0].id;
           setSubmittedTenantId(id);
           setTenantId(id);
@@ -1950,6 +1951,16 @@ export function App() {
   const settingsMutationsDisabled =
     currentTenantMembershipRole === "readonly" || currentTenantMembershipRole === "member";
 
+  useEffect(() => {
+    if (!targetTenantId) return;
+    const label = serverTenants.find((t) => t.id === targetTenantId)?.name?.trim();
+    if (!label) return;
+    setAccountCompany((current) => {
+      if (current.companyName.trim()) return current;
+      return { ...current, companyName: label };
+    });
+  }, [targetTenantId, serverTenants]);
+
   const loadTenantDashboardSettings = useCallback(async () => {
     if (!targetTenantId) {
       pushToast("Selecione uma conta válida para carregar as configurações.");
@@ -2485,6 +2496,7 @@ export function App() {
       }
       pushToast("Link enviado para revisão.");
       setNewRecoveryLinkDraft(emptyRecoveryLinkDraft());
+      setRecoveryLinkCreateModalOpen(false);
       if (payload.item?.tenantId) {
         setTenantId(payload.item.tenantId);
         setSubmittedTenantId(payload.item.tenantId);
@@ -2850,6 +2862,19 @@ export function App() {
     void loadMessageTemplates();
     void loadRecoveryLinks();
   }, [activeMenu, targetTenantId, loadMessageTemplates, loadRecoveryLinks]);
+
+  useEffect(() => {
+    if (!recoveryLinkCreateModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setRecoveryLinkCreateModalOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [recoveryLinkCreateModalOpen]);
+
+  useEffect(() => {
+    if (activeMenu !== "messages") setRecoveryLinkCreateModalOpen(false);
+  }, [activeMenu]);
 
   useEffect(() => {
     if (activeMenu !== "operations") return;
@@ -4990,19 +5015,31 @@ export function App() {
 
         {isMessagesMenu && (
           <section
-            className="integrations-page messages-page"
+            className="integrations-page messages-page account-page"
             ref={messagesSectionRef}
             aria-label="Mensagens WhatsApp"
           >
-            <header className="account-page-header">
+            <header className="account-page-header messages-page-header">
               <span className="account-page-badge">Conteúdo</span>
               <h1 className="account-page-title">Mensagens WhatsApp</h1>
               <p className="account-page-lead">
-                Personalize cada texto enviado ao cliente pelo WhatsApp conforme o gatilho (falha, pendência, aprovação, etc.). Respeite as regras do WhatsApp e da LGPD.
+                Ajuste o texto por gatilho (falha no pagamento, pendência, aprovação, etc.). Evite spam, identifique-se com clareza e trate dados conforme a LGPD.
               </p>
+              <ul className="messages-compliance-hints" aria-label="Boas práticas">
+                <li>Use variáveis para nome e valor — soa natural e reduz erros.</li>
+                <li>Pré-visualize ao lado antes de salvar.</li>
+                <li>Links de checkout vão na seção abaixo, após aprovação.</li>
+              </ul>
             </header>
 
-            <div className="integration-toolbar integration-toolbar--messages">
+            <div className="messages-toolbar-surface" aria-label="Ações da tela de mensagens">
+              <div className="messages-toolbar-intro">
+                <p className="messages-toolbar-title">Modelos e gatilhos</p>
+                <p className="messages-toolbar-hint">
+                  Recarregue se acabou de alterar integrações. Crie uma mensagem por gatilho ou edite a existente.
+                </p>
+              </div>
+              <div className="integration-toolbar integration-toolbar--messages">
               <div className="integration-header-actions integration-header-actions--messages">
                 <button type="button" className="btn btn-tertiary" onClick={() => void loadMessageTemplates()} disabled={messagesLoading}>
                   {messagesLoading ? "Carregando..." : "Recarregar"}
@@ -5094,9 +5131,17 @@ export function App() {
                   </>
                 ) : null}
               </div>
+              </div>
             </div>
 
-            <div className="account-bento settings-account-bento messages-editor-bento" style={{ marginTop: 16 }}>
+            <div className="messages-section">
+              <h2 className="messages-section-title">Editor e pré-visualização</h2>
+              <p className="messages-section-lead">
+                Escolha o fluxo ou modelo, escreva a mensagem e confira como o cliente verá no WhatsApp.
+              </p>
+            </div>
+
+            <div className="account-bento settings-account-bento messages-editor-bento">
               <div className="account-bento-main">
                 <article className="account-card">
                   <div className="account-card-head">
@@ -5235,7 +5280,7 @@ export function App() {
                     <span className="account-label">Mensagem</span>
                     <textarea
                       ref={messageEditorBodyRef}
-                      className="account-input"
+                      className="account-input messages-body-textarea"
                       rows={9}
                       value={messageEditorBody}
                       onChange={(event) => {
@@ -5287,16 +5332,7 @@ export function App() {
                           const d = variantDrafts[v.id];
                           if (!d) return null;
                           return (
-                            <div
-                              key={v.id}
-                              className="message-variant-block"
-                              style={{
-                                marginTop: 12,
-                                padding: "12px 14px",
-                                borderRadius: 8,
-                                border: "1px solid color-mix(in srgb, var(--border-subtle, #ccc) 80%, transparent)",
-                              }}
-                            >
+                            <div key={v.id} className="message-variant-block message-variant-card">
                               <label className="account-field">
                                 <span className="account-label">Rótulo</span>
                                 <input
@@ -5416,20 +5452,28 @@ export function App() {
               </aside>
             </div>
 
-            <div className="account-bento settings-account-bento recovery-links-bento" style={{ marginTop: 16 }}>
+            <div className="messages-section messages-section--links">
+              <h2 className="messages-section-title">Links de recuperação</h2>
+              <p className="messages-section-lead">
+                Cadastre URLs de checkout ou ofertas para usar nas mensagens. Cada envio passa por revisão antes de liberar no
+                fluxo.
+              </p>
+            </div>
+
+            <div className="account-bento settings-account-bento recovery-links-bento">
               <div className="account-bento-main">
                 <article className="account-card">
                   <div className="account-card-head">
                     <span className="material-symbols-outlined account-card-icon" aria-hidden="true">
                       link
                     </span>
-                    <h2 className="account-card-title">Links de recuperação</h2>
+                    <h2 className="account-card-title">Links cadastrados</h2>
                   </div>
                   <p className="inline-help subtle">
-                    Cadastre aqui os links de recuperação que podem ser usados nas mensagens. Cada link passa por revisão antes
-                    de ficar disponível no fluxo.
+                    Lista dos links enviados para análise. Cadastre novos pelo botão — o formulário abre em uma janela para
+                    não ocupar a página.
                   </p>
-                  <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
+                  <div className="recovery-links-toolbar filter-actions settings-actions">
                     <button
                       type="button"
                       className="btn btn-tertiary"
@@ -5438,129 +5482,16 @@ export function App() {
                     >
                       {recoveryLinksLoading ? "Carregando..." : "Recarregar links"}
                     </button>
-                  </div>
-
-                  <h3 className="recovery-link-section-title">Enviar novo link</h3>
-                  <p className="inline-help subtle recovery-link-section-lead">
-                    Preencha os dados abaixo e envie para análise. Campos opcionais ajudam a equipe a validar o contexto do link.
-                  </p>
-                  <div className="recovery-link-create-grid">
-                    <label className="account-field">
-                      <span className="account-label">Nome interno</span>
-                      <input
-                        className="account-input"
-                        value={newRecoveryLinkDraft.label}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, label: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                        placeholder="Ex.: Checkout de recuperacao no cartao"
-                      />
-                    </label>
-                    <label className="account-field">
-                      <span className="account-label">Plataforma</span>
-                      <input
-                        className="account-input"
-                        value={newRecoveryLinkDraft.platform}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, platform: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                        placeholder="Hotmart, Kiwify, Hubla..."
-                      />
-                    </label>
-                    <label className="account-field account-field-span2">
-                      <span className="account-label">URL do link</span>
-                      <input
-                        className="account-input"
-                        value={newRecoveryLinkDraft.url}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, url: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                        placeholder="https://..."
-                      />
-                      <span className="inline-help subtle">
-                        Pode colar apenas o domínio; o sistema completa `https://` automaticamente.
-                      </span>
-                    </label>
-                    <label className="account-field">
-                      <span className="account-label">Gatilho</span>
-                      <select
-                        className="account-input"
-                        value={newRecoveryLinkDraft.triggerEventType}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({
-                            ...current,
-                            triggerEventType: event.target.value,
-                          }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                      >
-                        <option value="">Todos os gatilhos de recuperação</option>
-                        {triggerCatalog.map((entry) => (
-                          <option key={entry.value} value={entry.value}>
-                            {entry.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="account-field">
-                      <span className="account-label">Produto/oferta</span>
-                      <input
-                        className="account-input"
-                        value={newRecoveryLinkDraft.productName}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, productName: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                        placeholder="Opcional"
-                      />
-                    </label>
-                    <label className="account-field">
-                      <span className="account-label">Responsável</span>
-                      <input
-                        className="account-input"
-                        value={newRecoveryLinkDraft.submittedBy}
-                        onChange={(event) =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, submittedBy: event.target.value }))
-                        }
-                        disabled={settingsMutationsDisabled}
-                        placeholder="Seu nome ou responsavel pelo link"
-                      />
-                    </label>
-                    <div className="recovery-link-active-toggle account-field-span2">
-                      <div className="recovery-link-active-toggle-copy">
-                        <p className="recovery-link-active-toggle-title">Ativar quando aprovado</p>
-                        <p className="recovery-link-active-toggle-desc">
-                          Se ligado, o link passa a ser usado nas mensagens após a aprovação. A ordem entre vários links
-                          continua com a operação, não aqui.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={newRecoveryLinkDraft.active}
-                        aria-label="Ativar quando aprovado"
-                        disabled={settingsMutationsDisabled}
-                        className={`recovery-link-switch ${newRecoveryLinkDraft.active ? "recovery-link-switch--on" : ""}`}
-                        onClick={() =>
-                          setNewRecoveryLinkDraft((current) => ({ ...current, active: !current.active }))
-                        }
-                      >
-                        <span className="recovery-link-switch-thumb" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
                     <button
                       type="button"
                       className="btn btn-primary"
-                      onClick={() => void createRecoveryLink()}
-                      disabled={recoveryLinkCreating || settingsMutationsDisabled}
+                      disabled={settingsMutationsDisabled}
+                      onClick={() => {
+                        setNewRecoveryLinkDraft(emptyRecoveryLinkDraft());
+                        setRecoveryLinkCreateModalOpen(true);
+                      }}
                     >
-                      {recoveryLinkCreating ? "Enviando..." : "Enviar link para revisão"}
+                      Cadastrar novo link
                     </button>
                   </div>
 
@@ -5571,7 +5502,9 @@ export function App() {
                           link_off
                         </span>
                         <p className="recovery-link-empty-title">Nenhum link cadastrado</p>
-                        <p className="recovery-link-empty-text">Preencha o formulário acima e envie para revisão.</p>
+                        <p className="recovery-link-empty-text">
+                          Clique em &quot;Cadastrar novo link&quot; para enviar o primeiro para revisão.
+                        </p>
                       </div>
                     ) : (
                       recoveryLinksList.map((item) => {
@@ -5785,6 +5718,162 @@ export function App() {
                 </article>
               </aside>
             </div>
+
+            {recoveryLinkCreateModalOpen ? (
+              <div
+                className="views-modal-backdrop"
+                onClick={() => setRecoveryLinkCreateModalOpen(false)}
+                role="presentation"
+              >
+                <section
+                  className="views-modal surface recovery-link-create-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="recovery-link-create-title"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="views-modal-head">
+                    <div>
+                      <h3 id="recovery-link-create-title">Cadastro e envio para análise</h3>
+                      <p>
+                        Preencha os dados e envie para análise. Campos opcionais ajudam a equipe a validar o contexto do link.
+                      </p>
+                    </div>
+                    <button type="button" className="btn btn-tertiary" onClick={() => setRecoveryLinkCreateModalOpen(false)}>
+                      Fechar
+                    </button>
+                  </div>
+
+                  <div className="recovery-link-create-grid recovery-link-create-grid--modal">
+                    <label className="account-field">
+                      <span className="account-label">Nome interno</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.label}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, label: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Ex.: Checkout de recuperacao no cartao"
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Plataforma</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.platform}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, platform: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Hotmart, Kiwify, Hubla..."
+                      />
+                    </label>
+                    <label className="account-field account-field-span2">
+                      <span className="account-label">URL do link</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.url}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, url: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="https://..."
+                      />
+                      <span className="inline-help subtle">
+                        Pode colar apenas o domínio; o sistema completa `https://` automaticamente.
+                      </span>
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Gatilho</span>
+                      <select
+                        className="account-input"
+                        value={newRecoveryLinkDraft.triggerEventType}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({
+                            ...current,
+                            triggerEventType: event.target.value,
+                          }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                      >
+                        <option value="">Todos os gatilhos de recuperação</option>
+                        {triggerCatalog.map((entry) => (
+                          <option key={entry.value} value={entry.value}>
+                            {entry.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Produto/oferta</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.productName}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, productName: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <label className="account-field">
+                      <span className="account-label">Responsável</span>
+                      <input
+                        className="account-input"
+                        value={newRecoveryLinkDraft.submittedBy}
+                        onChange={(event) =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, submittedBy: event.target.value }))
+                        }
+                        disabled={settingsMutationsDisabled}
+                        placeholder="Seu nome ou responsavel pelo link"
+                      />
+                    </label>
+                    <div className="recovery-link-active-toggle account-field-span2">
+                      <div className="recovery-link-active-toggle-copy">
+                        <p className="recovery-link-active-toggle-title">Ativar quando aprovado</p>
+                        <p className="recovery-link-active-toggle-desc">
+                          Se ligado, o link passa a ser usado nas mensagens após a aprovação. A ordem entre vários links
+                          continua com a operação, não aqui.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={newRecoveryLinkDraft.active}
+                        aria-label="Ativar quando aprovado"
+                        disabled={settingsMutationsDisabled}
+                        className={`recovery-link-switch ${newRecoveryLinkDraft.active ? "recovery-link-switch--on" : ""}`}
+                        onClick={() =>
+                          setNewRecoveryLinkDraft((current) => ({ ...current, active: !current.active }))
+                        }
+                      >
+                        <span className="recovery-link-switch-thumb" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="recovery-link-modal-actions">
+                    <button
+                      type="button"
+                      className="btn btn-tertiary"
+                      onClick={() => setRecoveryLinkCreateModalOpen(false)}
+                      disabled={recoveryLinkCreating}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void createRecoveryLink()}
+                      disabled={recoveryLinkCreating || settingsMutationsDisabled}
+                    >
+                      {recoveryLinkCreating ? "Enviando..." : "Enviar link para revisão"}
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </section>
         )}
 
