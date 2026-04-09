@@ -3,6 +3,7 @@ import type { CanonicalEvent } from "@re/core";
 import { hashWebhookIngressToken } from "@re/core";
 import {
   looksLikeKiwifyPayload,
+  looksLikeHublaWebhook,
   parseHublaToCanonical,
   parseHotmartToCanonical,
   parseKiwifyToCanonical,
@@ -73,7 +74,7 @@ function hasHeader(headers: Record<string, unknown>, name: string): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function detectProvider(headers: Record<string, unknown>, body: unknown): z.infer<typeof providerSchema> {
+export function detectProvider(headers: Record<string, unknown>, body: unknown): z.infer<typeof providerSchema> {
   if (
     hasHeader(headers, "x-kiwify-token") ||
     hasHeader(headers, "x-kiwify-webhook-token") ||
@@ -113,13 +114,7 @@ function detectProvider(headers: Record<string, unknown>, body: unknown): z.infe
     return "hotmart";
   }
 
-  const hublaData = asObject(data);
-  if (
-    (typeof root.id === "string" || typeof root.id === "number") &&
-    (typeof root.payment_status === "string" ||
-      typeof root.status === "string" ||
-      Object.keys(hublaData).length > 0)
-  ) {
+  if (looksLikeHublaWebhook(body)) {
     return "hubla";
   }
 
@@ -208,7 +203,7 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
       const provider = providerParsed.success ? providerParsed.data : detectProvider(req.headers, req.body);
 
       const genericPolicy = checkGenericWebhookPolicy(provider, req.headers);
-      if (!genericPolicy.ok) {
+      if (genericPolicy.ok === false) {
         return reply.status(genericPolicy.status).send({ ok: false, error: genericPolicy.error });
       }
 
@@ -229,7 +224,7 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
           hottok: config?.webhookToken ?? null,
           secret: config?.apiKey ?? null,
         });
-        if (!verified.ok) {
+        if (verified.ok === false) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }
         const parsedCanonical = parseHotmartToCanonical({
@@ -248,7 +243,7 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
           token: config?.webhookToken ?? null,
           secret: config?.apiKey ?? null,
         });
-        if (!verified.ok) {
+        if (verified.ok === false) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }
         const parsedCanonical = parseKiwifyToCanonical({
@@ -267,7 +262,7 @@ export const webhooksIngressRoutes: FastifyPluginAsync = async (app) => {
           token: config?.webhookToken ?? null,
           secret: config?.apiKey ?? null,
         });
-        if (!verified.ok) {
+        if (verified.ok === false) {
           return reply.status(401).send({ ok: false, error: verified.reason });
         }
         const parsedCanonical = parseHublaToCanonical({

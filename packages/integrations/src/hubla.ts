@@ -5,6 +5,8 @@ import type { CanonicalEvent, PaymentOutcome } from "@re/core";
 
 const hublaPayloadSchema = z
   .object({
+    type: z.string().optional(),
+    version: z.string().optional(),
     event: z.string().optional(),
     id: z.union([z.string(), z.number()]).optional(),
     status: z.string().optional(),
@@ -15,12 +17,21 @@ const hublaPayloadSchema = z
     customer: z.record(z.unknown()).optional(),
     order: z.record(z.unknown()).optional(),
     data: z.record(z.unknown()).optional(),
+    user: z.record(z.unknown()).optional(),
   })
   .passthrough();
 
 function asObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
+}
+
+function firstObject(...values: unknown[]): Record<string, unknown> {
+  for (const value of values) {
+    const obj = asObject(value);
+    if (Object.keys(obj).length > 0) return obj;
+  }
+  return {};
 }
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
@@ -64,6 +75,38 @@ function safeEq(a: string, b: string): boolean {
   const bb = Buffer.from(b, "utf8");
   if (ab.length !== bb.length) return false;
   return timingSafeEqual(ab, bb);
+}
+
+export function looksLikeHublaWebhook(body: unknown): boolean {
+  const root = asObject(body);
+  const event = asObject(root.event);
+  const type = typeof root.type === "string" ? root.type.trim().toLowerCase() : "";
+  const version = typeof root.version === "string" ? root.version.trim().toLowerCase() : "";
+
+  if (type.startsWith("invoice.") || type.startsWith("subscription.") || type.startsWith("customer.") || type.startsWith("lead.")) {
+    return true;
+  }
+
+  if (version === "v2.0.0" || version === "2.0.0") {
+    return Object.keys(event).length > 0;
+  }
+
+  if (Object.keys(event).length > 0) {
+    return (
+      typeof root.type === "string" ||
+      typeof root.id === "string" ||
+      typeof root.id === "number" ||
+      typeof root.payment_status === "string" ||
+      typeof root.status === "string"
+    );
+  }
+
+  return (
+    typeof root.id === "string" ||
+    typeof root.id === "number" ||
+    typeof root.payment_status === "string" ||
+    typeof root.status === "string"
+  );
 }
 
 export function verifyHublaWebhook(
@@ -117,41 +160,81 @@ export function parseHublaToCanonical(params: {
 
   const root = asObject(parsed.data);
   const data = asObject(root.data);
-  const order = asObject(root.order);
-  const customer = asObject(root.customer);
-  const sourceOrder = Object.keys(order).length > 0 ? order : asObject(data.order);
-  const sourceCustomer = Object.keys(customer).length > 0 ? customer : asObject(data.customer);
+  const event = asObject(root.event);
+  const eventProducts = Array.isArray(event.products) ? event.products : Array.isArray(data.products) ? data.products : [];
+  const firstEventProduct = eventProducts.length > 0 ? asObject(eventProducts[0]) : {};
+  const order = firstObject(root.order, data.order, event.invoice, event.subscription, event.lead);
+  const customer = firstObject(root.customer, root.user, data.customer, data.user, event.payer, event.user);
+  const invoice = firstObject(event.invoice, data.invoice, root.invoice);
+  const subscription = firstObject(event.subscription, data.subscription, root.subscription);
+  const lead = firstObject(event.lead, data.lead, root.lead);
+  const sourceOrder = Object.keys(order).length > 0 ? order : firstObject(invoice, subscription, lead);
+  const sourceCustomer =
+    Object.keys(customer).length > 0 ? customer : firstObject(invoice.payer, subscription, lead, event.customer);
+  const payerName =
+    [pickString(sourceCustomer, ["firstName", "first_name"]), pickString(sourceCustomer, ["lastName", "last_name"])]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || undefined;
 
   const rawStatus =
-    pickString(root, ["payment_status", "status", "event"]) ??
+    pickString(root, ["payment_status", "status", "type", "event"]) ??
+    pickString(invoice, ["status", "payment_status", "type"]) ??
+    pickString(subscription, ["status", "payment_status", "type"]) ??
+    pickString(lead, ["status", "payment_status", "type"]) ??
     pickString(sourceOrder, ["status", "payment_status"]);
   const outcome = inferOutcome(rawStatus);
 
   const amountRaw =
     pickNumber(root, ["amount_cents", "amount"]) ??
-    pickNumber(sourceOrder, ["amount_cents", "amount", "total"]);
+    pickNumber(invoice, ["amount_cents", "amount", "total_cents", "total"]) ??
+    pickNumber(asObject(invoice.amount), ["totalCents", "subtotalCents", "total", "amount"]) ??
+    pickNumber(subscription, ["amount_cents", "amount", "total_cents", "total"]) ??
+    pickNumber(sourceOrder, ["amount_cents", "amount", "total", "value"]);
   const amountCents =
     amountRaw === undefined ? 0 : Number.isInteger(amountRaw) && Math.abs(amountRaw) >= 1000 ? Math.trunc(amountRaw) : Math.round(amountRaw * 100);
+
+  const occurredAt =
+    pickString(invoice, ["saleDate", "createdAt", "created_at", "modifiedAt", "modified_at", "dueDate", "due_date"]) ??
+    pickString(subscription, ["createdAt", "created_at", "modifiedAt", "modified_at", "activatedAt", "activated_at"]) ??
+    pickString(lead, ["createdAt", "created_at", "modifiedAt", "modified_at"]) ??
+    new Date().toISOString();
 
   return {
     idempotencyKey: params.idempotencyKey,
     tenantId: params.tenantId,
     integration: "hubla",
-    occurredAt: new Date().toISOString(),
+    occurredAt,
     customer: {
-      externalId: pickString(sourceCustomer, ["id", "external_id", "document"]) ?? "unknown",
+      externalId:
+        pickString(sourceCustomer, ["id", "external_id", "document", "payerId"]) ??
+        pickString(event, ["payerId"]) ??
+        "unknown",
       email: pickString(sourceCustomer, ["email"]),
-      phoneE164: pickString(sourceCustomer, ["phone", "phone_number"]),
-      name: pickString(sourceCustomer, ["name"]),
+      phoneE164: pickString(sourceCustomer, ["phone", "phone_number", "phoneE164"]) ?? pickString(event, ["phone"]),
+      name:
+        pickString(sourceCustomer, ["name", "fullName", "full_name"]) ??
+        payerName ??
+        pickString(event, ["name"]),
     },
     order: {
       externalId:
         pickString(root, ["id", "order_id", "transaction_id"]) ??
+        pickString(invoice, ["id", "invoice_id"]) ??
+        pickString(subscription, ["id", "subscription_id"]) ??
+        pickString(lead, ["id", "lead_id"]) ??
         pickString(sourceOrder, ["id", "order_id"]) ??
         "unknown",
       amountCents,
-      currency: pickString(root, ["currency"]) ?? pickString(sourceOrder, ["currency"]) ?? "BRL",
-      productName: pickString(sourceOrder, ["product_name", "name"]),
+      currency:
+        pickString(root, ["currency"]) ??
+        pickString(invoice, ["currency"]) ??
+        pickString(subscription, ["currency"]) ??
+        pickString(sourceOrder, ["currency"]) ??
+        "BRL",
+      productName:
+        pickString(sourceOrder, ["product_name", "name"]) ??
+        pickString(firstObject(event.product, firstEventProduct), ["name"]),
     },
     payment: { outcome },
     rawRef: { provider: "hubla", payloadHash: params.payloadHash },
