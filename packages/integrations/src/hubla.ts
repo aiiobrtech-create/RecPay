@@ -1,25 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
-import { z } from "zod";
 import type { CanonicalEvent, PaymentOutcome } from "@re/core";
-
-const hublaPayloadSchema = z
-  .object({
-    type: z.string().optional(),
-    version: z.string().optional(),
-    event: z.union([z.string(), z.record(z.unknown())]).optional(),
-    id: z.union([z.string(), z.number()]).optional(),
-    status: z.string().optional(),
-    payment_status: z.string().optional(),
-    amount: z.union([z.number(), z.string()]).optional(),
-    amount_cents: z.union([z.number(), z.string()]).optional(),
-    currency: z.string().optional(),
-    customer: z.record(z.unknown()).optional(),
-    order: z.record(z.unknown()).optional(),
-    data: z.record(z.unknown()).optional(),
-    user: z.record(z.unknown()).optional(),
-  })
-  .passthrough();
 
 function asObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -155,10 +136,8 @@ export function parseHublaToCanonical(params: {
   payloadHash: string;
   payload: unknown;
 }): CanonicalEvent | null {
-  const parsed = hublaPayloadSchema.safeParse(params.payload);
-  if (!parsed.success) return null;
-
-  const root = asObject(parsed.data);
+  const root = asObject(params.payload);
+  if (Object.keys(root).length === 0) return null;
   const data = asObject(root.data);
   const event = asObject(root.event);
   const eventProducts = Array.isArray(event.products) ? event.products : Array.isArray(data.products) ? data.products : [];
@@ -179,6 +158,7 @@ export function parseHublaToCanonical(params: {
 
   const rawStatus =
     pickString(root, ["payment_status", "status", "type", "event"]) ??
+    pickString(event, ["payment_status", "status", "type"]) ??
     pickString(invoice, ["status", "payment_status", "type"]) ??
     pickString(subscription, ["status", "payment_status", "type"]) ??
     pickString(lead, ["status", "payment_status", "type"]) ??
@@ -187,6 +167,7 @@ export function parseHublaToCanonical(params: {
 
   const amountRaw =
     pickNumber(root, ["amount_cents", "amount"]) ??
+    pickNumber(event, ["totalAmount", "amount", "amount_cents", "amountCents", "value"]) ??
     pickNumber(invoice, ["amount_cents", "amount", "total_cents", "total"]) ??
     pickNumber(asObject(invoice.amount), ["totalCents", "subtotalCents", "total", "amount"]) ??
     pickNumber(subscription, ["amount_cents", "amount", "total_cents", "total"]) ??
@@ -195,6 +176,7 @@ export function parseHublaToCanonical(params: {
     amountRaw === undefined ? 0 : Number.isInteger(amountRaw) && Math.abs(amountRaw) >= 1000 ? Math.trunc(amountRaw) : Math.round(amountRaw * 100);
 
   const occurredAt =
+    pickString(event, ["createdAt", "paidAt", "expiresAt", "modifiedAt"]) ??
     pickString(invoice, ["saleDate", "createdAt", "created_at", "modifiedAt", "modified_at", "dueDate", "due_date"]) ??
     pickString(subscription, ["createdAt", "created_at", "modifiedAt", "modified_at", "activatedAt", "activated_at"]) ??
     pickString(lead, ["createdAt", "created_at", "modifiedAt", "modified_at"]) ??
@@ -208,17 +190,25 @@ export function parseHublaToCanonical(params: {
     customer: {
       externalId:
         pickString(sourceCustomer, ["id", "external_id", "document", "payerId"]) ??
+        pickString(event, ["userId"]) ??
         pickString(event, ["payerId"]) ??
         "unknown",
-      email: pickString(sourceCustomer, ["email"]),
-      phoneE164: pickString(sourceCustomer, ["phone", "phone_number", "phoneE164"]) ?? pickString(event, ["phone"]),
+      email:
+        pickString(sourceCustomer, ["email"]) ??
+        pickString(event, ["userEmail", "email"]) ??
+        pickString(event, ["payerEmail"]),
+      phoneE164:
+        pickString(sourceCustomer, ["phone", "phone_number", "phoneE164"]) ??
+        pickString(event, ["userPhone", "phone"]) ??
+        pickString(event, ["payerPhone"]),
       name:
         pickString(sourceCustomer, ["name", "fullName", "full_name"]) ??
         payerName ??
-        pickString(event, ["name"]),
+        pickString(event, ["userName", "name", "fullName"]),
     },
     order: {
       externalId:
+        pickString(event, ["transactionId", "transaction_id", "saleId", "sale_id"]) ??
         pickString(root, ["id", "order_id", "transaction_id"]) ??
         pickString(invoice, ["id", "invoice_id"]) ??
         pickString(subscription, ["id", "subscription_id"]) ??
@@ -228,12 +218,14 @@ export function parseHublaToCanonical(params: {
       amountCents,
       currency:
         pickString(root, ["currency"]) ??
+        pickString(event, ["currency"]) ??
         pickString(invoice, ["currency"]) ??
         pickString(subscription, ["currency"]) ??
         pickString(sourceOrder, ["currency"]) ??
         "BRL",
       productName:
         pickString(sourceOrder, ["product_name", "name"]) ??
+        pickString(event, ["groupName", "group_name", "productName", "product_name"]) ??
         pickString(firstObject(event.product, firstEventProduct), ["name"]),
     },
     payment: { outcome },
