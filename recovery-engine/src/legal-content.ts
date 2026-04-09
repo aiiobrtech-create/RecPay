@@ -15,9 +15,8 @@ export type LegalDocument = {
 };
 
 export const legalEntityChecklist = [
-  "Substituir a identificação do controlador/contratada pela razão social exata da empresa que emitirá proposta, checkout e nota fiscal.",
-  "Inserir CNPJ, endereço comercial e canal oficial do encarregado/DPO antes de publicar em produção.",
-  "Validar com jurídico as regras de retenção, base legal por operação e cláusulas comerciais específicas do contrato enterprise.",
+  "Política de retenção definida por categoria de dado: contratos, cobrança, logs, suporte e histórico comercial.",
+  "Canal formal de privacidade definido: privacidade@recpay.com.br.",
 ];
 
 export const legalContact = {
@@ -25,13 +24,13 @@ export const legalContact = {
   websiteUrl: "https://recpay.com.br",
   dashboardUrl: "https://app.recpay.com.br",
   supportEmail: "suporte@recpay.com.br",
-  privacyEmail: "suporte@recpay.com.br",
+  privacyEmail: "privacidade@recpay.com.br",
   controllerLabel:
-    "Empresa responsável pela operação comercial da plataforma RecPay, a ser identificada de forma consistente na proposta, no checkout, na nota fiscal e nos canais oficiais.",
-  registryLabel: "CNPJ a ser informado antes da publicação final.",
-  addressLabel: "Endereço comercial a ser informado antes da publicação final.",
+    "Gabrielle Vellozo Camacho Neves, Microempreendedora Individual (MEI), operação responsável pela marca RecPay e pela emissão de proposta, checkout e nota fiscal.",
+  registryLabel: "65.748.040/0001-61",
+  addressLabel: "Rua João Zarzur, nº 99, apto. 123, Bloco B, Vila São Paulo, Mongaguá - SP, CEP 11730-142.",
   dpoLabel:
-    "Até a divulgação de canal dedicado, o atendimento de privacidade deve ser centralizado e respondido pelo e-mail oficial de suporte.",
+    "Canal formal de privacidade e encarregado: privacidade@recpay.com.br. Até a ativação operacional desse endereço, as mensagens podem ser redirecionadas pelo suporte oficial.",
 };
 
 export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
@@ -45,7 +44,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
     highlights: [
       "Documento desenhado para operação SaaS B2B de recuperação automática de vendas e cobrança recorrente por plano.",
       "Prevê regras de acesso por conta, uso aceitável, suspensão, integrações com terceiros e proteção de propriedade intelectual.",
-      "Deve ser lido em conjunto com a política de privacidade, proposta comercial e eventuais condições contratuais específicas.",
+      "Identifica a operação comercial da marca RecPay como Gabrielle Vellozo Camacho Neves, MEI, CNPJ 65.748.040/0001-61.",
     ],
     sections: [
       {
@@ -100,6 +99,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
           "Os planos, franquias, limites técnicos, periodicidade, valores, excedentes, condições promocionais e eventuais serviços adicionais serão aqueles divulgados no checkout, na proposta comercial aceita ou no contrato específico firmado com o cliente.",
           "A cobrança poderá ocorrer por assinatura recorrente, link de pagamento, invoice, cartão, Pix, boleto ou outros meios disponíveis. Tributos, encargos financeiros por atraso e custos de terceiros podem ser cobrados quando previstos contratualmente.",
           "A falta de pagamento, tentativa reiterada de fraude, chargeback indevido ou contestação abusiva poderá resultar em bloqueio de funcionalidades, suspensão de acessos, cobrança administrativa ou rescisão, sem prejuízo das medidas legais cabíveis.",
+          "Em contratos enterprise ou sob proposta comercial específica, prevalecem as condições expressamente aceitas por escrito, incluindo prazo mínimo de contratação, onboarding, SLA, suporte dedicado, volumes excedentes, faturamento faturado, multa, reajuste, confidencialidade, segurança, DPA e regras de rescisão, sempre que não conflitarem com normas obrigatórias.",
         ],
       },
       {
@@ -177,7 +177,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
     highlights: [
       "Estrutura alinhada aos deveres de transparência da LGPD, com referência a direitos do titular, controlador, encarregado, retenção e segurança.",
       "Distingue dados próprios da relação comercial da RecPay dos dados tratados na operação dos clientes dentro da plataforma.",
-      "Deve ser concluída com razão social, CNPJ, endereço e canal formal do encarregado antes da publicação definitiva.",
+      "Identifica a operação comercial da marca RecPay como Gabrielle Vellozo Camacho Neves, MEI, CNPJ 65.748.040/0001-61.",
     ],
     sections: [
       {
@@ -186,7 +186,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
         body: [
           "Esta política se aplica ao tratamento de dados pessoais realizado pela operação responsável pela marca RecPay em seu site institucional, fluxos comerciais, contratação, suporte, onboarding, faturamento, prevenção à fraude, autenticação e uso da plataforma.",
           "Para atividades em que a RecPay decide finalidades e meios do tratamento, ela atua como controladora. Quando tratar dados pessoais em nome e sob instruções de clientes empresariais dentro da plataforma, poderá atuar como operadora, conforme a finalidade envolvida.",
-          "A identificação societária final da contratada, seu CNPJ, endereço e canal formal do encarregado devem constar de forma uniforme no site, no checkout, na proposta e nos documentos fiscais.",
+          "A identificação societária da contratada é Gabrielle Vellozo Camacho Neves, Microempreendedora Individual (MEI), inscrita no CNPJ 65.748.040/0001-61, com endereço comercial em Rua João Zarzur, nº 99, apto. 123, Bloco B, Vila São Paulo, Mongaguá - SP, CEP 11730-142.",
         ],
       },
       {
@@ -239,8 +239,8 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
         title: "7. Armazenamento, retenção e descarte",
         body: [
           "Os dados pessoais serão armazenados pelo tempo necessário para cumprir as finalidades informadas, executar contrato, responder a solicitações, preservar evidências, atender exigências legais, fiscais, regulatórias e exercer direitos em processos administrativos, arbitrais ou judiciais.",
-          "Poderemos manter registros mínimos de segurança, auditoria, logs, cobrança, prevenção à fraude e integridade da operação mesmo após o encerramento da conta, observadas as hipóteses legais de conservação dos arts. 15 e 16 da LGPD e regras aplicáveis do Marco Civil da Internet.",
-          "Encerrado o prazo de retenção, os dados serão eliminados, anonimizados ou sujeitos a bloqueio, conforme a natureza da informação e a base jurídica remanescente.",
+          "Em regra, dados cadastrais, contratuais, financeiros e de cobrança podem ser mantidos pelo prazo necessário ao cumprimento das obrigações legais e à defesa de direitos; registros técnicos, logs de segurança e evidências de auditoria podem ser preservados pelo período mínimo necessário para prevenção a fraude, resposta a incidentes e integridade operacional; tickets de suporte e comunicações comerciais podem ser guardados enquanto houver histórico útil da relação comercial ou obrigação jurídica pendente.",
+          "Encerrado o prazo de retenção, os dados serão eliminados, anonimizados ou sujeitos a bloqueio, conforme a natureza da informação e a base jurídica remanescente, observadas as hipóteses legais de conservação previstas na LGPD.",
         ],
       },
       {
@@ -283,7 +283,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
         id: "contato",
         title: "12. Contato, encarregado e atualizações",
         body: [
-          "Solicitações sobre privacidade, proteção de dados e exercício de direitos devem ser enviadas ao canal oficial da RecPay indicado nesta página, até que seja divulgado canal dedicado do encarregado/DPO.",
+          "Solicitações sobre privacidade, proteção de dados e exercício de direitos devem ser enviadas ao canal formal de privacidade e encarregado: privacidade@recpay.com.br.",
           "Esta política poderá ser atualizada para refletir mudanças legais, regulatórias, técnicas, operacionais ou contratuais. A versão vigente será sempre a publicada nos canais oficiais da RecPay com a data de última atualização.",
           "Sempre que a alteração impactar de forma relevante a transparência do tratamento ou as condições aplicáveis, a RecPay poderá adotar aviso adicional por e-mail, painel ou outros meios razoáveis.",
         ],

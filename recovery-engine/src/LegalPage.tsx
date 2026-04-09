@@ -75,55 +75,45 @@ export function LegalPage({ slug }: { slug: LegalDocument["slug"] }) {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
-              <div>
-                <h2 className="font-headline text-xl font-bold text-on-surface">Pendências obrigatórias antes da publicação final</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant">
-                  O texto abaixo já cobre a estrutura jurídica principal, mas ainda depende de identificação societária e validação final de compliance.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-3">
-              {legalEntityChecklist.map((item) => (
-                <div key={item} className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-white/80 p-4 text-sm leading-6 text-on-surface">
-                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <span>{item}</span>
-                </div>
-              ))}
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
+            <div>
+              <h2 className="font-headline text-xl font-bold text-on-surface">Base jurídica para publicação final</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant">
+                O texto abaixo cobre a estrutura jurídica principal, incluindo identificação societária, retenção, contratos enterprise e canal formal de privacidade.
+              </p>
             </div>
           </div>
 
-          <aside className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mt-6 rounded-[2rem] border border-slate-200 bg-slate-50 p-5">
             <p className="font-headline text-sm font-bold uppercase tracking-[0.2em] text-primary">Identificação institucional</p>
-            <div className="mt-5 space-y-4 text-sm leading-6">
+            <div className="mt-5 grid gap-4 text-sm leading-6 sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <span className="block font-semibold text-on-surface">Marca / produto</span>
                 <span className="text-on-surface-variant">{legalContact.brandName}</span>
               </div>
               <div>
-                <span className="block font-semibold text-on-surface">Controlador / contratada</span>
-                <span className="text-on-surface-variant">{legalContact.controllerLabel}</span>
+                <span className="block font-semibold text-on-surface">Operação comercial</span>
+                <span className="text-on-surface-variant">{legalContact.brandName}</span>
               </div>
               <div>
                 <span className="block font-semibold text-on-surface">CNPJ</span>
                 <span className="text-on-surface-variant">{legalContact.registryLabel}</span>
               </div>
               <div>
-                <span className="block font-semibold text-on-surface">Endereço</span>
-                <span className="text-on-surface-variant">{legalContact.addressLabel}</span>
-              </div>
-              <div>
                 <span className="block font-semibold text-on-surface">Privacidade / encarregado</span>
                 <span className="text-on-surface-variant">{legalContact.dpoLabel}</span>
               </div>
+              <div className="sm:col-span-2 xl:col-span-4">
+                <span className="block font-semibold text-on-surface">Endereço</span>
+                <span className="text-on-surface-variant">{legalContact.addressLabel}</span>
+              </div>
             </div>
-          </aside>
+          </div>
         </section>
 
-        <section className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
           <div className="space-y-6">
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <p className="font-headline text-sm font-bold uppercase tracking-[0.2em] text-primary">Pontos centrais</p>
