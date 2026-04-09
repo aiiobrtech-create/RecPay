@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "node scripts/patch-drizzle-kit.mjs",
     "build": "npm run build -w @re/app-config && npm run build -w @re/core && npm run build -w @re/frontend && npm run build -w @re/db && npm run build -w @re/queue && npm run build -w @re/integrations && npm run build -w @re/api && npm run build -w @re/worker && npm run build -w @re/web",
     "dev": "node scripts/dev-stack.mjs",
     "setup:db": "npm run db:push -w @re/db && npm run db:rls",
