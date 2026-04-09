@@ -310,6 +310,12 @@ async function maybeCreateRecoveryAttempt(
     .limit(1);
 
   if (existingForEvent && existingForEvent.status !== "scheduled") return;
+  const retryMeta =
+    existingForEvent && existingForEvent.meta && typeof existingForEvent.meta === "object" && !Array.isArray(existingForEvent.meta)
+      ? ((existingForEvent.meta as Record<string, unknown>).retry as Record<string, unknown> | null | undefined)
+      : null;
+  const retryOrigin = typeof retryMeta?.origin === "string" ? retryMeta.origin : "";
+  const isManualRetry = retryOrigin.includes("manual");
 
   const generator = new TemplateContentGenerator();
   const resolved = await resolveMessagingConfig(db, row.tenantId, eventType);
@@ -342,7 +348,7 @@ async function maybeCreateRecoveryAttempt(
     .where(eq(tenants.id, row.tenantId))
     .limit(1);
 
-  if (tenant?.planMonthlyRecoveryLimit && tenant.planMonthlyRecoveryLimit > 0) {
+  if (!isManualRetry && tenant?.planMonthlyRecoveryLimit && tenant.planMonthlyRecoveryLimit > 0) {
     const monthStart = startOfCurrentUtcMonth();
     const [countRow] = await db
       .select({ total: sql<number>`count(*)::int` })
@@ -452,12 +458,13 @@ async function maybeCreateRecoveryAttempt(
         reason: "missing_customer_phone",
         executedAt: new Date(),
         meta: buildMeta(contactKey, recoveryLink, {
-          delivery: {
-            provider: "evolution",
-            ok: false,
-            errorCode: "missing_customer_phone",
-          },
-        }),
+        delivery: {
+          provider: "evolution",
+          ok: false,
+          errorCode: "missing_customer_phone",
+          errorMessage: "Número do cliente ausente.",
+        },
+      }),
       })
       .where(eq(recoveryAttempts.id, attemptId));
     return;
@@ -471,12 +478,13 @@ async function maybeCreateRecoveryAttempt(
         reason: "invalid_customer_phone",
         executedAt: new Date(),
         meta: buildMeta(null, recoveryLink, {
-          delivery: {
-            provider: "evolution",
-            ok: false,
-            errorCode: "invalid_customer_phone",
-          },
-        }),
+        delivery: {
+          provider: "evolution",
+          ok: false,
+          errorCode: "invalid_customer_phone",
+          errorMessage: "Número do cliente inválido.",
+        },
+      }),
       })
       .where(eq(recoveryAttempts.id, attemptId));
     return;
@@ -554,7 +562,7 @@ async function maybeCreateRecoveryAttempt(
       ),
     );
 
-  if ((cooldownWindow?.total ?? 0) > 0) {
+  if (!isManualRetry && (cooldownWindow?.total ?? 0) > 0) {
     await db
       .update(recoveryAttempts)
       .set({
@@ -597,7 +605,7 @@ async function maybeCreateRecoveryAttempt(
       ),
     );
 
-  if ((dailyWindow?.total ?? 0) >= maxAttemptsPerDay) {
+  if (!isManualRetry && (dailyWindow?.total ?? 0) >= maxAttemptsPerDay) {
     await db
       .update(recoveryAttempts)
       .set({
@@ -659,6 +667,7 @@ async function maybeCreateRecoveryAttempt(
           statusCode: sendResult.statusCode ?? null,
           providerMessageId: sendResult.providerMessageId ?? null,
           errorCode: sendResult.errorCode ?? null,
+          errorMessage: sendResult.errorMessage ?? null,
           errorType: sendResult.errorType ?? null,
         },
       }),

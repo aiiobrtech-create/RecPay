@@ -41,6 +41,84 @@ function sanitizePhone(value: string): string {
   return value.replace(/[^\d]/g, "");
 }
 
+function normalizeBrazilianPhone(value: string): string {
+  const digits = sanitizePhone(value);
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
+
+type EvolutionResponseBody = Record<string, unknown> | null;
+
+function safeTrimMessage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function extractErrorMessage(body: EvolutionResponseBody, fallback: string): string {
+  if (!body) return fallback;
+  return (
+    safeTrimMessage(body.message) ??
+    safeTrimMessage(body.error) ??
+    safeTrimMessage(body.details) ??
+    safeTrimMessage(body.response) ??
+    safeTrimMessage(body.description) ??
+    fallback
+  );
+}
+
+function buildSendTextPayload(input: SendEvolutionMessageInput, legacy: boolean): Record<string, unknown> {
+  if (legacy) {
+    return {
+      number: input.to,
+      textMessage: {
+        text: input.text,
+      },
+    };
+  }
+
+  return {
+    number: input.to,
+    text: input.text,
+  };
+}
+
+async function sendEvolutionTextRequest(
+  urlBase: string,
+  instance: string,
+  key: string,
+  payload: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<{ response: Response; body: EvolutionResponseBody }> {
+  const response = await fetch(`${urlBase}/message/sendText/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: key,
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  const rawBody = await response.text();
+  let body: EvolutionResponseBody = null;
+  if (rawBody.trim()) {
+    try {
+      body = JSON.parse(rawBody) as Record<string, unknown>;
+    } catch {
+      body = null;
+    }
+  }
+
+  return { response, body };
+}
+
+function shouldTryLegacyPayload(statusCode: number): boolean {
+  return statusCode === 400 || statusCode === 415 || statusCode === 422;
+}
+
 export async function sendEvolutionMessage(
   input: SendEvolutionMessageInput,
 ): Promise<SendEvolutionMessageResult> {
@@ -57,7 +135,7 @@ export async function sendEvolutionMessage(
     };
   }
 
-  const to = sanitizePhone(input.to);
+  const to = normalizeBrazilianPhone(input.to);
   if (!to) {
     return {
       ok: false,
@@ -71,40 +149,63 @@ export async function sendEvolutionMessage(
   const timer = setTimeout(() => controller.abort(), timeoutMs());
 
   try {
-    const response = await fetch(`${urlBase}/message/sendText/${encodeURIComponent(instance)}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: key,
-      },
-      body: JSON.stringify({
-        number: to,
-        text: input.text,
-      }),
-      signal: controller.signal,
-    });
+    const firstAttempt = await sendEvolutionTextRequest(
+      urlBase,
+      instance,
+      key,
+      buildSendTextPayload({ ...input, to }, false),
+      controller.signal,
+    );
 
-    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (firstAttempt.response.ok) {
+      return {
+        ok: true,
+        statusCode: firstAttempt.response.status,
+        providerMessageId:
+          (firstAttempt.body?.key as string | undefined) ??
+          (firstAttempt.body?.id as string | undefined) ??
+          undefined,
+      };
+    }
 
-    if (!response.ok) {
+    if (shouldTryLegacyPayload(firstAttempt.response.status)) {
+      const secondAttempt = await sendEvolutionTextRequest(
+        urlBase,
+        instance,
+        key,
+        buildSendTextPayload({ ...input, to }, true),
+        controller.signal,
+      );
+
+      if (secondAttempt.response.ok) {
+        return {
+          ok: true,
+          statusCode: secondAttempt.response.status,
+          providerMessageId:
+            (secondAttempt.body?.key as string | undefined) ??
+            (secondAttempt.body?.id as string | undefined) ??
+            undefined,
+        };
+      }
+
       return {
         ok: false,
-        statusCode: response.status,
+        statusCode: secondAttempt.response.status,
         errorCode: "provider_http_error",
-        errorMessage:
-          (payload?.message as string | undefined) ??
-          `Evolution API retornou ${response.status}.`,
-        errorType: response.status >= 500 ? "transient" : "permanent",
+        errorMessage: extractErrorMessage(
+          secondAttempt.body,
+          `Evolution API retornou ${secondAttempt.response.status}.`,
+        ),
+        errorType: secondAttempt.response.status >= 500 ? "transient" : "permanent",
       };
     }
 
     return {
-      ok: true,
-      statusCode: response.status,
-      providerMessageId:
-        (payload?.key as string | undefined) ??
-        (payload?.id as string | undefined) ??
-        undefined,
+      ok: false,
+      statusCode: firstAttempt.response.status,
+      errorCode: "provider_http_error",
+      errorMessage: extractErrorMessage(firstAttempt.body, `Evolution API retornou ${firstAttempt.response.status}.`),
+      errorType: firstAttempt.response.status >= 500 ? "transient" : "permanent",
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "unknown_error";

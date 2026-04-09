@@ -5741,7 +5741,7 @@ div.app-shell.sovereign-mode > main.content .status-list li {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 0.95fr) minmax(160px, 0.95fr) auto;
+  grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 0.95fr) minmax(160px, 0.95fr) auto 44px;
   gap: 12px;
   align-items: center;
   background: transparent;
@@ -5765,7 +5765,7 @@ div.app-shell.sovereign-mode > main.content .status-list li {
   margin: 0;
   padding: 14px 16px;
   display: grid;
-  grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 0.95fr) minmax(160px, 0.95fr) auto;
+  grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 0.95fr) minmax(160px, 0.95fr) auto 44px;
   gap: 12px;
   align-items: center;
   background: #161616;
@@ -5831,6 +5831,14 @@ div.app-shell.sovereign-mode > main.content .status-list li {
   min-width: 0;
 }
 
+.attempts-filter-reload {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  justify-self: end;
+}
+
 .re-dropdown.re-dropdown-inline .re-dropdown-trigger {
   border: none;
   background: transparent;
@@ -5855,6 +5863,11 @@ div.app-shell.sovereign-mode > main.content .status-list li {
     grid-column: 1 / -1;
     justify-self: stretch;
   }
+
+  .attempts-filter-reload {
+    grid-column: auto;
+    justify-self: end;
+  }
 }
 
 div.app-shell.sovereign-mode .btn.attempts-filter-apply.btn.btn-primary {
@@ -5878,6 +5891,14 @@ div.app-shell.sovereign-mode .btn.attempts-filter-apply.btn.btn-primary:hover:no
 @media (max-width: 640px) {
   .attempts-filter-bar--reference {
     grid-template-columns: 1fr;
+  }
+
+  .attempts-filter-bar--reference .attempts-filter-apply,
+  .attempts-filter-reload {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
   }
 }
 

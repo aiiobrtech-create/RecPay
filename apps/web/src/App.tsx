@@ -61,6 +61,52 @@ function buildAttemptLogPageList(current: number, total: number): Array<number |
   return out;
 }
 
+function formatAttemptReason(reason: string | null | undefined, tone: "negative" | "positive"): string {
+  const code = reason?.trim() ?? "";
+  if (!code) return "-";
+
+  const friendly: Record<string, string> = {
+    provider_http_error: "Falha no envio pela operadora",
+    contact_cooldown_active: "Aguardando intervalo mínimo entre envios",
+    contact_daily_limit_exceeded: "Limite diário de envios atingido",
+    tenant_monthly_recovery_limit_exceeded: "Limite mensal da conta atingido",
+    missing_customer_phone: "Cliente sem telefone cadastrado",
+    invalid_customer_phone: "Telefone do cliente inválido",
+    message_rejected_by_reviewer: "Mensagem recusada na revisão",
+    awaiting_message_approval: "Aguardando aprovação da mensagem",
+    manual_retry_requested: "Reenvio manual solicitado",
+    send_error: "Falha no envio",
+    timeout: "Tempo limite de envio excedido",
+    network_error: "Falha de conexão com o provedor",
+    invalid_hubla_payload: "Evento da plataforma com formato inválido",
+  };
+
+  if (friendly[code]) return friendly[code];
+
+  if (code.includes("payment_failed_auto_recovery_v1")) {
+    return tone === "positive" ? "Mensagem enviada com sucesso" : "Tentativa de recuperação";
+  }
+
+  return code
+    .replaceAll("_", " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\w/, (ch) => ch.toUpperCase());
+}
+
+function isManualRetryConsumed(meta: Record<string, unknown> | null | undefined): boolean {
+  if (!meta || typeof meta !== "object") return false;
+  const retry = meta.retry;
+  if (!retry || typeof retry !== "object" || Array.isArray(retry)) return false;
+  const retryMeta = retry as Record<string, unknown>;
+  const requestedAt = retryMeta.requestedAt;
+  const origin = retryMeta.origin;
+  return (
+    (typeof requestedAt === "string" && requestedAt.trim().length > 0) ||
+    (typeof origin === "string" && origin.includes("manual"))
+  );
+}
+
 function startOfMonthIso(): string {
   const now = new Date();
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
@@ -535,6 +581,17 @@ function emptyRecoveryLinksQueuePagination(): RecoveryLinksQueuePagination {
   };
 }
 
+function buildAttemptListQueryBounds(range: "7" | "30" | "90" | "all"): { from: string | null; to: string | null } {
+  if (range === "all") return { from: null, to: null };
+  const days = Number(range);
+  const to = new Date();
+  const from = new Date(Date.now() - days * 86_400_000);
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
+}
+
 type DropdownOption<TValue extends string> = {
   value: TValue | "";
   label: string;
@@ -626,6 +683,7 @@ export function App() {
   const [dashboardQuickRange, setDashboardQuickRange] = useState<"7d" | "30d" | "90d" | "month" | "custom">("30d");
   const [isAttemptStatusOpen, setIsAttemptStatusOpen] = useState(false);
   const attemptStatusRef = useRef<HTMLDivElement | null>(null);
+  const [attemptActionsRefreshKey, setAttemptActionsRefreshKey] = useState(0);
   const [enabledProviders, setEnabledProviders] = useState<Record<WebhookProvider, boolean>>({
     hotmart: false,
     kiwify: false,
@@ -650,10 +708,14 @@ export function App() {
       actionLabel: string;
       amount: number;
       reason: string;
+      deliveryStatusCode: number | null;
+      deliveryErrorMessage: string | null;
+      retryConsumed: boolean;
       tone: "negative" | "positive";
     }>
   >([]);
   const [attemptActionsLoading, setAttemptActionsLoading] = useState(false);
+  const [attemptRetryingId, setAttemptRetryingId] = useState<string | null>(null);
   const [isIntegrationsProviderOpen, setIsIntegrationsProviderOpen] = useState(false);
   const integrationsProviderRef = useRef<HTMLDivElement | null>(null);
   const [accountContact, setAccountContact] = useState({
@@ -886,6 +948,11 @@ export function App() {
     accessToken,
   });
 
+  const reloadOperationalData = useCallback(() => {
+    setAttemptActionsRefreshKey((current) => current + 1);
+    void refetch();
+  }, [refetch]);
+
   const selectedRangeLabel = useMemo(() => {
     if (!data) return "";
     return `${formatDate(data.range.from)} ate ${formatDate(data.range.to)} (${data.range.days} dias)`;
@@ -1050,6 +1117,10 @@ export function App() {
     const days = Number(attemptLogRange);
     return Date.now() - days * 86400000;
   }, [attemptLogRange]);
+  const attemptListQueryBounds = useMemo(
+    () => buildAttemptListQueryBounds(attemptLogRange),
+    [attemptLogRange],
+  );
 
   const filteredAttemptActions = useMemo(() => {
     const query = attemptLogSearch.trim().toLowerCase();
@@ -1175,8 +1246,8 @@ export function App() {
 
         const statusLabel: Record<"scheduled" | "simulated_sent" | "sent" | "failed", string> = {
           scheduled: "Agendada",
-          simulated_sent: "Recuperação enviada",
-          sent: "Recuperação enviada",
+          simulated_sent: "Enviada",
+          sent: "Enviada",
           failed: "Falha no pagamento",
         };
 
@@ -1225,10 +1296,10 @@ export function App() {
       try {
         const query = new URLSearchParams({
           tenantId: attemptsTenantId,
-          from: submittedFrom,
-          to: submittedTo,
           limit: "100",
         });
+        if (attemptListQueryBounds.from) query.set("from", attemptListQueryBounds.from);
+        if (attemptListQueryBounds.to) query.set("to", attemptListQueryBounds.to);
         const response = await dashboardFetch(`${baseUrl}/recovery-attempts?${query.toString()}`, accessToken);
         const payload = (await readResponseJson(response)) as
           | {
@@ -1249,17 +1320,27 @@ export function App() {
         }
         const statusLabel: Record<"scheduled" | "simulated_sent" | "sent" | "failed", string> = {
           scheduled: "Agendada",
-          simulated_sent: "Recuperação enviada",
-          sent: "Recuperação enviada",
+          simulated_sent: "Enviada",
+          sent: "Enviada",
           failed: "Falha no pagamento",
         };
         const rows = payload.items.map((item) => {
           const meta = item.meta && typeof item.meta === "object" ? item.meta : {};
+          const delivery =
+            typeof meta.delivery === "object" && meta.delivery !== null
+              ? (meta.delivery as Record<string, unknown>)
+              : {};
+          const retryConsumed = isManualRetryConsumed(meta);
           const providerRaw = typeof meta.provider === "string" && meta.provider.trim() ? meta.provider : "N/D";
           const amountRaw = typeof meta.amount === "number" ? meta.amount : Number(meta.amount ?? 0);
           const amount = Number.isFinite(amountRaw) ? amountRaw : 0;
           const isNegative = item.status === "failed";
           const tone: "negative" | "positive" = isNegative ? "negative" : "positive";
+          const deliveryStatusCode = typeof delivery.statusCode === "number" ? delivery.statusCode : null;
+          const deliveryErrorMessage =
+            typeof delivery.errorMessage === "string" && delivery.errorMessage.trim()
+              ? delivery.errorMessage.trim()
+              : null;
           return {
             id: item.id,
             createdAt: item.createdAt,
@@ -1268,6 +1349,9 @@ export function App() {
             actionLabel: statusLabel[item.status],
             amount,
             reason: item.reason ?? (typeof meta.reason === "string" ? meta.reason : "-"),
+            deliveryStatusCode,
+            deliveryErrorMessage,
+            retryConsumed,
             tone,
           };
         });
@@ -1285,7 +1369,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
+  }, [accessToken, attemptsTenantId, attemptActionsRefreshKey, attemptListQueryBounds.from, attemptListQueryBounds.to, baseUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1301,10 +1385,10 @@ export function App() {
         while (hasMore) {
           const query = new URLSearchParams({
             tenantId: attemptsTenantId,
-            from: submittedFrom,
-            to: submittedTo,
             limit: "100",
           });
+          if (attemptListQueryBounds.from) query.set("from", attemptListQueryBounds.from);
+          if (attemptListQueryBounds.to) query.set("to", attemptListQueryBounds.to);
           if (cursor) query.set("cursor", cursor);
           const response = await dashboardFetch(`${baseUrl}/recovery-attempts?${query.toString()}`, accessToken);
           const payload = (await readResponseJson(response)) as
@@ -1338,7 +1422,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
+  }, [accessToken, attemptsTenantId, attemptActionsRefreshKey, attemptListQueryBounds.from, attemptListQueryBounds.to, baseUrl]);
 
   const onSort = (nextKey: TimeseriesSortKey) => {
     if (sortKey === nextKey) {
@@ -1378,6 +1462,39 @@ export function App() {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, options?.durationMs ?? 2200);
   };
+
+  const retryManualAttempt = useCallback(
+    async (attemptId: string) => {
+      if (!attemptsTenantId.trim()) {
+        pushToast("Selecione uma conta válida para reenviar a tentativa.");
+        return;
+      }
+      if (attemptRetryingId) return;
+      setAttemptRetryingId(attemptId);
+      try {
+        const query = new URLSearchParams({ tenantId: attemptsTenantId });
+        const response = await dashboardFetch(
+          `${baseUrl}/recovery-attempts/${attemptId}/retry?${query.toString()}`,
+          accessToken,
+          { method: "POST" },
+        );
+        const payload = (await readResponseJson(response)) as
+          | { ok?: boolean; error?: string; message?: string }
+          | null
+          | undefined;
+        if (!response.ok || !payload?.ok) {
+          throw new Error(formatHttpError("Falha ao reenviar tentativa", response, payload));
+        }
+        pushToast("Reenvio solicitado.");
+        reloadOperationalData();
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : "Falha ao reenviar tentativa.");
+      } finally {
+        setAttemptRetryingId((current) => (current === attemptId ? null : current));
+      }
+    },
+    [accessToken, attemptRetryingId, attemptsTenantId, baseUrl, pushToast, reloadOperationalData],
+  );
 
   const insertRecoveryPlaceholder = (text: string) => {
     if (settingsMutationsDisabled) return;
@@ -1797,7 +1914,7 @@ export function App() {
 
   const runQuickAction = (label: string) => {
     if (label.includes("WhatsApp")) {
-      navigateToMenu("integrations");
+      navigateToMenu("attempts");
       return;
     }
     if (label.includes("Reprocessar")) {
@@ -2879,7 +2996,7 @@ export function App() {
   ]);
 
   const sovereignActions = [
-    { label: "Recuperação via WhatsApp", icon: "chat_bubble" as const },
+    { label: "Envio via WhatsApp", icon: "chat_bubble" as const },
     { label: "Reprocessar tentativas", icon: "swap_horiz" as const },
     { label: "Alternativa de pagamento", icon: "credit_card" as const },
     { label: "Entrada de webhook", icon: "request_quote" as const },
@@ -3226,7 +3343,7 @@ export function App() {
             <div className="sovereign-heading">
               <div>
                 <h1>Painel de Recuperação</h1>
-                <p>Recuperação de receita • Atualizado há 2 min</p>
+                <p>Operação de envios e recuperação • Atualizado há 2 min</p>
                 <div className="sovereign-range-quick" role="group" aria-label="Filtros rápidos de período">
                   <button
                     type="button"
@@ -3262,7 +3379,7 @@ export function App() {
                 <button className="btn btn-secondary" onClick={onExportCsv}>
                   Baixar relatórios
                 </button>
-                <button className="btn btn-primary soft" onClick={() => void refetch()} disabled={isFetching}>
+                <button className="btn btn-primary soft" onClick={reloadOperationalData} disabled={isFetching}>
                   {isFetching ? "Atualizando..." : "Atualizar dados"}
                 </button>
               </div>
@@ -3281,7 +3398,7 @@ export function App() {
                       </span>
                       <small>variação nos últimos 7 dias</small>
                     </div>
-                    <small>Total de recuperações no período que você filtrou no painel.</small>
+                    <small>Total de envios e resultados no período que você filtrou no painel.</small>
                   </div>
                   <button
                     className="sovereign-more-btn"
@@ -3337,7 +3454,7 @@ export function App() {
             <div className="sovereign-lower">
               <section className="sovereign-accounts">
                 <div className="sovereign-section-head">
-                  <h3>Canais de recuperação</h3>
+                  <h3>Canais de envio</h3>
                   <button onClick={() => navigateToMenu("integrations")}>Gerenciar</button>
                 </div>
                 <div className="sovereign-account-item">
@@ -3347,8 +3464,8 @@ export function App() {
                         chat_bubble
                       </span>
                     </div>
-                    <strong>Recuperação via WhatsApp</strong>
-                    <small>Canal principal</small>
+                    <strong>Envio via WhatsApp</strong>
+                    <small>Canal principal de envio</small>
                   </div>
                   <div className="sovereign-account-meta">
                     <strong>{formatInt(data?.summary.byStatus.sent ?? 0)}</strong>
@@ -3367,7 +3484,7 @@ export function App() {
                   </div>
                   <div className="sovereign-account-meta">
                     <strong>{formatPercent(data?.summary.totals.deliveryRate ?? null)}</strong>
-                    <small>Taxa de entrega</small>
+                    <small>Taxa de envio</small>
                   </div>
                 </div>
                 <div className="sovereign-account-item">
@@ -3408,7 +3525,7 @@ export function App() {
                       <div className="re-dropdown-menu" role="menu">
                         {[
                           { key: "Falha no pagamento", label: "Falha no pagamento" },
-                          { key: "Recuperação enviada", label: "Recuperação enviada" },
+                          { key: "Mensagem enviada", label: "Mensagem enviada" },
                         ].map((opt) => {
                           const active = sovereignTxStageFilters.includes(opt.key);
                           return (
@@ -3549,7 +3666,7 @@ export function App() {
               <div>
                 <p className="eyebrow">Insights operacionais</p>
                 <h1>Painel de Recuperação</h1>
-                <p className="subtle">Visão executiva clara para operação e resultado de recuperação.</p>
+                <p className="subtle">Visão executiva clara para operação, envios e resultado do funil.</p>
               </div>
               <div className="topbar-actions">
                 <span className="meta-chip">{selectedRangeLabel || "Sem período aplicado"}</span>
@@ -3570,7 +3687,7 @@ export function App() {
                   className={`btn btn-secondary btn-icon-only${isFetching ? " is-busy" : ""}`}
                   aria-label={isFetching ? "Atualizando dados" : "Atualizar dados"}
                   aria-busy={isFetching}
-                  onClick={() => void refetch()}
+                  onClick={reloadOperationalData}
                   disabled={isFetching}
                 >
                   <ArrowsClockwise size={15} weight="duotone" aria-hidden />
@@ -3581,7 +3698,7 @@ export function App() {
             <section className="surface project-tabs-surface">
               <div className="project-title-row">
                 <h3>Visão geral</h3>
-                <span className="subtle">Acompanhe operação, uso e recuperação.</span>
+                <span className="subtle">Acompanhe operação, uso e envios.</span>
               </div>
               <div className="project-tabs">
                 <button className="project-tab active">Resumo</button>
@@ -3871,7 +3988,7 @@ export function App() {
               <span className="account-page-badge">Operação</span>
               <h1 className="account-page-title">Configurações</h1>
               <p className="account-page-lead">
-                Limites, canais de recuperação e URL de integração da sua conta.
+                Limites, canais de envio e URL de integração da sua conta.
               </p>
             </header>
 
@@ -4026,7 +4143,7 @@ export function App() {
               type="button"
               className="btn btn-secondary"
               style={{ marginTop: 12 }}
-              onClick={() => void refetch()}
+              onClick={reloadOperationalData}
               disabled={isFetching}
             >
               {isFetching ? "Carregando…" : "Tentar novamente"}
@@ -4046,9 +4163,9 @@ export function App() {
               </article>
               <article className="metric-card">
                 <div className="metric-icon metric-green">DL</div>
-                <p>Taxa de entrega</p>
+                <p>Taxa de envio</p>
                 <h2>{formatPercent(data.summary.totals.deliveryRate)}</h2>
-                <small>Resultado de recuperação</small>
+                <small>Resultado de envio</small>
               </article>
               <article className="metric-card">
                 <div className="metric-icon metric-amber">FP</div>
@@ -4163,7 +4280,7 @@ export function App() {
                           {attemptStatusFilter === "all"
                             ? "Todos Status"
                             : attemptStatusFilter === "success"
-                              ? "Sucesso"
+                              ? "Enviada"
                               : attemptStatusFilter === "failure"
                                 ? "Falha"
                                 : "Pendente"}
@@ -4176,7 +4293,7 @@ export function App() {
                         <div className="re-dropdown-menu" role="listbox">
                           {[
                             { value: "all", label: "Todos Status" },
-                            { value: "success", label: "Sucesso" },
+                            { value: "success", label: "Enviada" },
                             { value: "failure", label: "Falha" },
                             { value: "pending", label: "Pendente" },
                           ].map((opt) => {
@@ -4207,10 +4324,19 @@ export function App() {
                     className="btn btn-primary attempts-filter-apply"
                     onClick={() => {
                       setAttemptLogPage(1);
-                      void refetch();
+                      setAttemptActionsRefreshKey((current) => current + 1);
                     }}
                   >
                     Filtrar
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-secondary btn-icon-only attempts-filter-reload${isFetching || attemptActionsLoading ? " is-busy" : ""}`}
+                    onClick={reloadOperationalData}
+                    disabled={isFetching || attemptActionsLoading}
+                    aria-label={isFetching || attemptActionsLoading ? "Recarregando histórico" : "Recarregar histórico"}
+                  >
+                    <ArrowsClockwise size={14} weight="duotone" aria-hidden />
                   </button>
                 </div>
               </article>
@@ -4230,11 +4356,13 @@ export function App() {
                     <span>Status</span>
                     <span>Valor</span>
                     <span>Motivo</span>
+                    <span>Ação</span>
                   </div>
                   {attemptActionsLoading && (
                     <div className="attempts-ledger-row empty-row">
                       <span>-</span>
                       <span>Carregando ações...</span>
+                      <span>-</span>
                       <span>-</span>
                       <span>-</span>
                       <span>-</span>
@@ -4253,7 +4381,7 @@ export function App() {
                       const isPending = row.actionLabel === "Agendada";
                       const chipClass =
                         row.tone === "negative" ? "is-failure" : isPending ? "is-pending" : "is-success";
-                      const chipLabel = row.tone === "negative" ? "FALHA" : isPending ? "PENDENTE" : "SUCESSO";
+                      const chipLabel = row.tone === "negative" ? "FALHA" : isPending ? "PENDENTE" : "ENVIADA";
                       const providerLabel =
                         row.provider.length > 1
                           ? row.provider.charAt(0).toUpperCase() + row.provider.slice(1).toLowerCase()
@@ -4280,7 +4408,31 @@ export function App() {
                           <span className={row.tone === "negative" ? "is-negative" : "is-positive"}>
                             {`${row.tone === "negative" ? "-" : "+"}${formatCurrencyBrl(row.amount)}`}
                           </span>
-                          <span className="attempts-cell-reason">{row.reason}</span>
+                          <span
+                            className="attempts-cell-reason"
+                            title={[row.reason, row.deliveryErrorMessage].filter(Boolean).join(" · ") || undefined}
+                          >
+                            {formatAttemptReason(row.reason, row.tone)}
+                            {row.deliveryStatusCode ? ` · ${row.deliveryStatusCode}` : ""}
+                          </span>
+                          <span>
+                            {row.tone === "negative" ? (
+                              <button
+                                type="button"
+                                className="btn btn-tertiary attempts-row-retry-btn"
+                                disabled={attemptRetryingId === row.id || row.retryConsumed}
+                                onClick={() => void retryManualAttempt(row.id)}
+                              >
+                                {attemptRetryingId === row.id
+                                  ? "Reenviando..."
+                                  : row.retryConsumed
+                                    ? "Já usado"
+                                    : "Reenviar"}
+                              </button>
+                            ) : (
+                              <span className="attempts-row-retry-muted">-</span>
+                            )}
+                          </span>
                         </div>
                       );
                     })}
@@ -4288,6 +4440,7 @@ export function App() {
                     <div className="attempts-ledger-row empty-row">
                       <span>-</span>
                       <span>Nenhuma ação para os filtros atuais</span>
+                      <span>-</span>
                       <span>-</span>
                       <span>-</span>
                       <span>-</span>
@@ -4396,8 +4549,8 @@ export function App() {
                           ["created_at", "provider", "channel", "status", "amount", "reason"],
                           ...filteredAttemptActions.map((r) => {
                             const pend = r.actionLabel === "Agendada";
-                            const st = r.tone === "negative" ? "FALHA" : pend ? "PENDENTE" : "SUCESSO";
-                            return [r.createdAt, r.provider, r.channel, st, String(r.amount), r.reason];
+                            const st = r.tone === "negative" ? "FALHA" : pend ? "PENDENTE" : "ENVIADA";
+                            return [r.createdAt, r.provider, r.channel, st, String(r.amount), formatAttemptReason(r.reason, r.tone)];
                           }),
                         ];
                         const csv = rows
@@ -4424,7 +4577,7 @@ export function App() {
                   <span className="material-symbols-outlined attempts-summary-watermark" aria-hidden="true">
                     check_circle
                   </span>
-                  <p className="attempts-summary-label">Taxa de sucesso</p>
+                  <p className="attempts-summary-label">Taxa de envio</p>
                   <p className="attempts-summary-value">
                     {attemptLogStats.successRate === null ? "—" : `${attemptLogStats.successRate.toFixed(1)}%`}
                   </p>
@@ -5795,7 +5948,7 @@ export function App() {
                 <ul className="subtle" style={{ margin: 0, paddingLeft: 18 }}>
                   <li>Confirme se a conta correta está selecionada e se o período do painel faz sentido.</li>
                   <li>Em Integrações, verifique se o provedor e o webhook estão ativos.</li>
-                  <li>Em Mensagens, personalize o texto de recuperação; em Configurações, carregue e salve outras opções da conta.</li>
+                  <li>Em Mensagens, personalize o texto de envio; em Configurações, carregue e salve outras opções da conta.</li>
                 </ul>
               </article>
               <article className="surface">

@@ -68,6 +68,24 @@ function mergeMeta(base: unknown, patch: Record<string, unknown>): Record<string
   return { ...(base as Record<string, unknown>), ...patch };
 }
 
+function readManualRetryMeta(meta: unknown): Record<string, unknown> | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const retry = (meta as Record<string, unknown>).retry;
+  if (!retry || typeof retry !== "object" || Array.isArray(retry)) return null;
+  return retry as Record<string, unknown>;
+}
+
+function hasManualRetryBeenUsed(meta: unknown): boolean {
+  const retry = readManualRetryMeta(meta);
+  if (!retry) return false;
+  const requestedAt = retry.requestedAt;
+  const origin = retry.origin;
+  return (
+    (typeof requestedAt === "string" && requestedAt.trim().length > 0) ||
+    (typeof origin === "string" && origin.includes("manual"))
+  );
+}
+
 function toResponseItem(
   item: {
     id: string;
@@ -1097,6 +1115,14 @@ export const recoveryAttemptsRoutes: FastifyPluginAsync = async (app) => {
         .limit(1);
 
       if (!attempt) return reply.status(404).send({ ok: false, error: "attempt_not_found" });
+      if (attempt.status !== "failed") {
+        return reply.status(409).send({ ok: false, error: "retry_not_allowed", message: "Only failed attempts can be retried." });
+      }
+      if (hasManualRetryBeenUsed(attempt.meta)) {
+        return reply.status(409).send({ ok: false, error: "retry_already_used", message: "Manual retry already consumed for this attempt." });
+      }
+
+      const requestedAt = new Date().toISOString();
 
       await db
         .update(recoveryAttempts)
@@ -1106,8 +1132,8 @@ export const recoveryAttemptsRoutes: FastifyPluginAsync = async (app) => {
           executedAt: null,
           meta: mergeMeta(attempt.meta, {
             retry: {
-              requestedAt: new Date().toISOString(),
-              origin: "api_manual_retry",
+              requestedAt,
+              origin: "ui_manual_retry",
               previousStatus: attempt.status,
             },
           }),
