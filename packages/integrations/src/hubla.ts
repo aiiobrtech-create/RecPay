@@ -7,7 +7,7 @@ const hublaPayloadSchema = z
   .object({
     type: z.string().optional(),
     version: z.string().optional(),
-    event: z.string().optional(),
+    event: z.union([z.string(), z.record(z.unknown())]).optional(),
     id: z.union([z.string(), z.number()]).optional(),
     status: z.string().optional(),
     payment_status: z.string().optional(),
