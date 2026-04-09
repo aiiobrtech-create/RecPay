@@ -1280,14 +1280,6 @@ function PricingSection() {
                 ? 'Valores por mês equivalente; cobrança única anual no checkout.'
                 : 'Cobrança mensal recorrente; cancele quando quiser conforme contrato.'}
             </p>
-            <p
-              className={cn(
-                'rounded-full px-3 py-1 text-center text-xs font-semibold uppercase tracking-[0.18em]',
-                isStripeTestMode ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900',
-              )}
-            >
-              Stripe em modo {isStripeTestMode ? 'teste' : 'live'}
-            </p>
             {isStripeTestMode ? (
               <p className="max-w-xl text-center text-xs text-on-surface-variant">
                 Configure os links `VITE_STRIPE_TEST_LINK_*` para testar o checkout sem abrir links de produÃ§Ã£o.
