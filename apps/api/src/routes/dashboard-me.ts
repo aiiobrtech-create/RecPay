@@ -23,9 +23,18 @@ const legacyAnonymousMe = {
   },
 };
 
-async function replyWithDashboardMeForUser(reply: FastifyReply, user: MeUser): Promise<void> {
+/** `legacy-soft`: sem DB responde 200 + tenants vazio (compatível com deploy legado); caso contrário 503. */
+async function replyWithDashboardMeForUser(
+  reply: FastifyReply,
+  user: MeUser,
+  dbUnavailableBehavior: "strict" | "legacy-soft" = "strict",
+): Promise<void> {
   const db = getDb();
   if (!db) {
+    if (dbUnavailableBehavior === "legacy-soft") {
+      await reply.status(200).send(legacyAnonymousMe);
+      return;
+    }
     await reply.status(503).send({ ok: false, error: "database_unavailable" });
     return;
   }
@@ -81,7 +90,7 @@ export const dashboardMeRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(200).send(legacyAnonymousMe);
       }
 
-      await replyWithDashboardMeForUser(reply, data.user);
+      await replyWithDashboardMeForUser(reply, data.user, "legacy-soft");
       return;
     }
 
