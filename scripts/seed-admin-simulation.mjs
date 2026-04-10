@@ -57,9 +57,10 @@ try {
   `;
 
   const defaultTemplateBody =
-    "Oi {{nome}}, identificamos uma falha no pagamento ({{moeda}} {{valor}}). " +
-    "{{#link_checkout}}Use este link: {{link_checkout}}{{/link_checkout}} " +
-    "Responder para ajuda.";
+    "Olá, {{nome}} \u{1F499} Somos a RecPay, empresa de recuperação de pagamentos. " +
+    "Notamos que o valor de {{moeda}} {{valor}} ainda não foi confirmado — às vezes é só uma tentativa que não completou. " +
+    "{{#link_checkout}}Quando for conveniente, você pode finalizar com segurança por este link: {{link_checkout}}{{/link_checkout}} " +
+    "Esta é uma mensagem automática; respostas neste canal não são acompanhadas.";
   try {
     const [tpl] = await sql`
       INSERT INTO message_templates (tenant_id, name, channel, body, active)

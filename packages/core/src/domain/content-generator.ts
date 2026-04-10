@@ -74,8 +74,9 @@ export class TemplateContentGenerator implements ContentGenerator {
 
 export function defaultRecoveryTemplatePt(): string {
   return (
-    "Oi {{nome}}, identificamos uma falha no pagamento ({{moeda}} {{valor}}). " +
-    "{{#link_checkout}}Use este link para concluir: {{link_checkout}}{{/link_checkout}} " +
-    "Responda esta mensagem se precisar de ajuda."
+    "Olá, {{nome}} \u{1F499} Somos a RecPay, empresa de recuperação de pagamentos. " +
+    "Notamos que o valor de {{moeda}} {{valor}} ainda não foi confirmado — às vezes é só uma tentativa que não completou. " +
+    "{{#link_checkout}}Quando for conveniente, você pode finalizar com segurança por este link: {{link_checkout}}{{/link_checkout}} " +
+    "Esta é uma mensagem automática; respostas neste canal não são acompanhadas."
   );
 }

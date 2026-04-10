@@ -13,7 +13,8 @@ export const RECOVERY_PLACEHOLDER_CLIPBOARD_ITEMS = [
   {
     id: "block_link",
     title: "Bloco opcional com link",
-    copy: "{{#link_checkout}}Use este link para concluir: {{link_checkout}}{{/link_checkout}}",
+    copy:
+      "{{#link_checkout}}Quando for conveniente, você pode finalizar com segurança por este link: {{link_checkout}}{{/link_checkout}}",
     chipLabel: "{{#link_checkout}}…{{/link_checkout}}",
   },
 ] as const;
