@@ -1293,6 +1293,23 @@ export function App() {
     };
   }, [accessToken, attemptsTenantId, baseUrl, submittedFrom, submittedTo]);
 
+  const displayedSovereignTxRows = useMemo(() => {
+    let rows = sovereignTxRows;
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((row) =>
+        [formatDate(row.day), row.toFrom, row.account, row.method, row.amountText]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    if (sovereignTxStageFilters.length) {
+      rows = rows.filter((row) => sovereignTxStageFilters.includes(row.method));
+    }
+    return rows;
+  }, [sovereignTxRows, search, sovereignTxStageFilters]);
+
   useEffect(() => {
     let cancelled = false;
     const loadAttemptActions = async () => {
@@ -3376,9 +3393,20 @@ export function App() {
                       search
                     </span>
                     <input
+                      className="sovereign-topbar-search-input"
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setSearch(next);
+                        setAttemptLogSearch(next);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        navigateToMenu("attempts");
+                      }}
                       placeholder="Buscar tentativas, eventos, canais..."
+                      autoComplete="off"
                     />
                   </div>
                 </div>
@@ -3652,12 +3680,7 @@ export function App() {
                   <span>Etapa</span>
                   <span>Valor</span>
                 </div>
-                {sovereignTxRows
-                  .filter((row) => {
-                    if (!sovereignTxStageFilters.length) return true;
-                    return sovereignTxStageFilters.includes(row.method);
-                  })
-                  .map((row) => (
+                {displayedSovereignTxRows.map((row) => (
                   <div className="sovereign-row" key={`sovereign-row-${row.day}-${row.amountText}`}>
                     <span>{formatDate(row.day)}</span>
                     <span className="sovereign-merchant">
@@ -3686,10 +3709,13 @@ export function App() {
                   </div>
                 ))}
                 {sovereignTxRows.length === 0 && <div className="inline-help">Sem dados para o período selecionado.</div>}
-                {sovereignTxRows.length > 0 && (
+                {sovereignTxRows.length > 0 && displayedSovereignTxRows.length === 0 && (
+                  <div className="inline-help">Nenhum resultado para a busca ou filtros atuais.</div>
+                )}
+                {displayedSovereignTxRows.length > 0 && (
                   <div className="inline-help">
                     Saldo das linhas exibidas:{" "}
-                    <strong>{formatCurrencyBrl(sovereignTxRows.reduce((sum, row) => sum + row.amountValue, 0))}</strong>
+                    <strong>{formatCurrencyBrl(displayedSovereignTxRows.reduce((sum, row) => sum + row.amountValue, 0))}</strong>
                   </div>
                 )}
                 <div className="sovereign-load-more">
@@ -4282,7 +4308,11 @@ export function App() {
                       type="search"
                       className="attempts-filter-search-input"
                       value={attemptLogSearch}
-                      onChange={(event) => setAttemptLogSearch(event.target.value)}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setAttemptLogSearch(next);
+                        if (isSovereignMode) setSearch(next);
+                      }}
                       placeholder="Buscar por provedor ou ID"
                       aria-label="Buscar por provedor ou ID"
                     />
@@ -6074,21 +6104,25 @@ export function App() {
                   </div>
                   <div className="recovery-link-approval-stats">
                     <div className="attempts-summary-card">
-                      <small>Pendentes</small>
-                      <strong>{adminRecoveryLinksSummary.pendingReview}</strong>
-                      <p>Links aguardando revisão operacional antes de entrar no disparo.</p>
+                      <p className="attempts-summary-label">Pendentes</p>
+                      <p className="attempts-summary-value">{adminRecoveryLinksSummary.pendingReview}</p>
+                      <p className="attempts-summary-foot">
+                        Links aguardando revisão operacional antes de entrar no disparo.
+                      </p>
                     </div>
                     <div className="attempts-summary-card">
-                      <small>Aprovados</small>
-                      <strong>{adminRecoveryLinksSummary.approved}</strong>
-                      <p>
+                      <p className="attempts-summary-label">Aprovados</p>
+                      <p className="attempts-summary-value">{adminRecoveryLinksSummary.approved}</p>
+                      <p className="attempts-summary-foot">
                         {adminRecoveryLinksSummary.rejected} rejeitados • {adminRecoveryLinksSummary.all} no escopo atual
                       </p>
                     </div>
                     <div className="attempts-summary-card">
-                      <small>Filtro ativo</small>
-                      <strong>{adminReviewStatusFilter === "all" ? "Todos" : recoveryLinkStatusLabel(adminReviewStatusFilter)}</strong>
-                      <p>
+                      <p className="attempts-summary-label">Filtro ativo</p>
+                      <p className="attempts-summary-value">
+                        {adminReviewStatusFilter === "all" ? "Todos" : recoveryLinkStatusLabel(adminReviewStatusFilter)}
+                      </p>
+                      <p className="attempts-summary-foot">
                         {adminReviewTenantFilter.trim()
                           ? `Tenant filtrado: ${adminReviewTenantFilter.trim()}`
                           : adminReviewSearch.trim()
