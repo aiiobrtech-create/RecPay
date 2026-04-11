@@ -44,7 +44,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
     highlights: [
       "Documento desenhado para operação SaaS B2B de recuperação automática de vendas e cobrança recorrente por plano.",
       "Prevê regras de acesso por conta, uso aceitável, suspensão, integrações com terceiros e proteção de propriedade intelectual.",
-      "Inclui direito de arrependimento em 7 dias e reembolso nos termos aplicáveis, com canal formal pelo suporte.",
+      "Inclui período de teste gratuito de 7 dias na plataforma; mantém direito de arrependimento em 7 dias e reembolso nos termos aplicáveis, com canal formal pelo suporte.",
       "Identifica a operação comercial da marca RecPay como Gabrielle Vellozo Camacho Neves, MEI, CNPJ 65.748.040/0001-61.",
     ],
     sections: [

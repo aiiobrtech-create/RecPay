@@ -26,6 +26,7 @@ import {
   Brain, 
   Users, 
   ShieldCheck,
+  Gift,
   CreditCard,
   QrCode,
   ShoppingCart,
@@ -237,7 +238,7 @@ const PRICING_PLANS = [
       'Painel e métricas',
       'Suporte por e-mail',
     ],
-    cta: 'Assinar Essencial',
+    cta: 'Teste grátis por 7 dias',
     highlighted: false,
   },
   {
@@ -252,7 +253,7 @@ const PRICING_PLANS = [
       'API e webhook com token',
       'Suporte prioritário',
     ],
-    cta: 'Assinar Growth',
+    cta: 'Teste grátis por 7 dias',
     highlighted: true,
   },
   {
@@ -907,7 +908,7 @@ const Navbar = () => {
               href="#planos"
               className="rounded-full bg-primary px-5 py-2.5 font-headline text-sm font-bold text-white transition-all hover:opacity-90 sm:px-6"
             >
-              Ver planos
+              Teste grátis por 7 dias
             </a>
           </div>
 
@@ -962,7 +963,7 @@ const Navbar = () => {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="rounded-full bg-primary px-6 py-3 text-center font-bold text-white"
               >
-                Ver planos
+                Teste grátis por 7 dias
               </a>
             </motion.div>
           )}
@@ -1403,34 +1404,31 @@ function PricingSection() {
           >
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-                <ShieldCheck className="h-8 w-8 text-primary" aria-hidden />
+                <Gift className="h-8 w-8 text-primary" aria-hidden />
               </div>
               <div className="min-w-0 flex-1 space-y-4">
                 <div>
-                  <p className="font-headline text-xs font-bold uppercase tracking-widest text-primary">Comece tranquilo</p>
+                  <p className="font-headline text-xs font-bold uppercase tracking-widest text-primary">Comece grátis</p>
                   <h3 className="mt-2 font-headline text-xl font-bold tracking-tight text-on-surface sm:text-2xl">
-                    A gente aposta no produto — o risco fica com a gente
+                    7 dias grátis para testar na plataforma
                   </h3>
                 </div>
                 <p className="text-sm leading-relaxed text-on-surface sm:text-[15px]">
-                  A ideia é você colocar a RecPay para rodar e{' '}
-                  <strong className="font-semibold text-on-surface">ver recuperação de verdade</strong> no seu fluxo. Você tem{' '}
-                  <strong className="font-semibold text-on-surface">7 dias corridos</strong> após a{' '}
-                  <strong className="font-semibold text-on-surface">primeira cobrança</strong> para decidir com calma — sem pressa, sem
-                  letras miúdas.
+                  Você entra, configura integrações e{' '}
+                  <strong className="font-semibold text-on-surface">acompanha recuperação de verdade</strong> no seu fluxo — com{' '}
+                  <strong className="font-semibold text-on-surface">7 dias grátis</strong> para explorar tudo com calma, sem letras miúdas.
                 </p>
                 <p className="text-sm leading-relaxed text-on-surface-variant sm:text-[15px]">
-                  Se não for pra você, tudo bem: um e-mail para{' '}
+                  Dúvidas sobre o trial ou sua conta? Fale com{' '}
                   <a
-                    href={`mailto:${legalContact.supportEmail}?subject=Reembolso%20-%20garantia%207%20dias`}
+                    href={`mailto:${legalContact.supportEmail}?subject=Trial%207%20dias%20-%20d%C3%BAvidas`}
                     className="font-semibold text-primary underline-offset-4 hover:underline"
                   >
                     {legalContact.supportEmail}
-                  </a>{' '}
-                  com a conta que você usou ao assinar, e <strong className="font-semibold text-on-surface">devolvemos 100%</strong>. A
-                  garantia está aí para você testar com a cabeça livre, sem ficar travado na dúvida na hora de assinar. Do nosso lado, o
-                  foco é outro: <strong className="font-semibold text-on-surface">recuperar venda</strong> de verdade e fazer você{' '}
-                  <strong className="font-semibold text-on-surface">querer continuar</strong>.
+                  </a>
+                  . Do nosso lado, o foco é{' '}
+                  <strong className="font-semibold text-on-surface">recuperar venda</strong> de verdade e fazer você{' '}
+                  <strong className="font-semibold text-on-surface">querer continuar</strong> depois do período gratuito.
                 </p>
               </div>
             </div>
@@ -1534,7 +1532,7 @@ export default function App() {
                 href="#planos"
                 className="rounded-full bg-primary px-6 py-3.5 text-center font-headline text-base font-bold text-white shadow-xl shadow-primary/20 transition-all hover:scale-105 sm:px-10 sm:py-4 sm:text-lg"
               >
-                Ver planos e valores
+                Teste grátis por 7 dias
               </a>
               <a
                 href="#como-funciona"
@@ -1912,7 +1910,7 @@ export default function App() {
               href="#planos"
               className="rounded-full bg-white px-6 py-3.5 text-center text-base font-bold text-primary shadow-lg transition-all hover:scale-105 sm:px-10 sm:py-5 sm:text-lg"
             >
-              Ver planos
+              Teste grátis por 7 dias
             </a>
             <a
               href="#simulador"

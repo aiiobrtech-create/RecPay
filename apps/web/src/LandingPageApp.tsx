@@ -161,7 +161,7 @@ export function LandingPageApp() {
         </nav>
 
         <a className="lp-nav-cta" href="#cta-final">
-          Agendar demo
+          Teste grátis por 7 dias
         </a>
       </header>
 
@@ -178,7 +178,7 @@ export function LandingPageApp() {
 
             <div className="hero-actions">
               <a className="btn-primary" href="#cta-final">
-                Ver planos e valores
+                Teste grátis por 7 dias
                 <ArrowRight size={18} />
               </a>
               <a className="btn-secondary" href="#como-funciona">
@@ -456,8 +456,13 @@ export function LandingPageApp() {
               <p>Veja onde sua receita está vazando e simule o impacto no seu caixa.</p>
             </div>
             <div className="final-cta-actions">
-              <a className="btn-primary" href="#simulador">
-                Ver planos
+              <a
+                className="btn-primary"
+                href="https://app.recpay.com.br"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Teste grátis por 7 dias
                 <ArrowRight size={18} />
               </a>
               <a className="btn-secondary" href="#simulador">
@@ -469,7 +474,7 @@ export function LandingPageApp() {
       </main>
 
       <a className="sticky-mobile-cta" href="#cta-final">
-        Ver planos
+        Teste grátis por 7 dias
       </a>
     </div>
   );
