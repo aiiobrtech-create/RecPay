@@ -8,8 +8,8 @@ const hublaCanceledSalePayload = {
   event: {
     userId: "11111",
     userName: "teste",
-    userEmail: "starstorejoias@gmail.com",
-    userPhone: "(13) 99156-6125",
+    userEmail: "comprador-hubla-teste@example.com",
+    userPhone: "(11) 98888-0000",
     userDocument: "123.456.789-11",
     groupId: "YtGoBv1N5CHTgWuUOXj",
     groupName: "teste",
@@ -46,8 +46,8 @@ describe("Hubla webhook handling", () => {
     expect(canonical).not.toBeNull();
     expect(canonical?.integration).toBe("hubla");
     expect(canonical?.payment.outcome).toBe("failed");
-    expect(canonical?.customer.email).toBe("starstorejoias@gmail.com");
-    expect(canonical?.customer.phoneE164).toBe("(13) 99156-6125");
+    expect(canonical?.customer.email).toBe("comprador-hubla-teste@example.com");
+    expect(canonical?.customer.phoneE164).toBe("(11) 98888-0000");
     expect(canonical?.customer.name).toBe("teste");
     expect(canonical?.order.amountCents).toBe(1000);
     expect(canonical?.order.currency).toBe("BRL");

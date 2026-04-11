@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeRecoveryLinkUrlInput, requiresReapproval } from "./tenant-recovery-links.js";
+import {
+  isHttpOrHttpsRecoveryUrl,
+  normalizeRecoveryLinkUrlInput,
+  requiresReapproval,
+} from "./tenant-recovery-links.js";
 
 const baseLink = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -53,5 +57,18 @@ describe("normalizeRecoveryLinkUrlInput", () => {
     expect(normalizeRecoveryLinkUrlInput("https://example.com/path")).toBe(
       "https://example.com/path",
     );
+  });
+});
+
+describe("isHttpOrHttpsRecoveryUrl", () => {
+  it("accepts http and https", () => {
+    expect(isHttpOrHttpsRecoveryUrl("https://a.com/x")).toBe(true);
+    expect(isHttpOrHttpsRecoveryUrl("http://a.com/x")).toBe(true);
+  });
+
+  it("rejects non-browser-safe schemes", () => {
+    expect(isHttpOrHttpsRecoveryUrl("javascript:alert(1)")).toBe(false);
+    expect(isHttpOrHttpsRecoveryUrl("data:text/html,<script>")).toBe(false);
+    expect(isHttpOrHttpsRecoveryUrl("ftp://files.exemplo.com/a")).toBe(false);
   });
 });

@@ -6,6 +6,29 @@ import { dashboardFetch, readResponseJson } from "./dashboard-fetch.js";
 import { composeRecoveryMessagePreview, RECOVERY_PLACEHOLDER_CLIPBOARD_ITEMS } from "./recovery-message-preview.js";
 import { isSupabaseBrowserConfigured, supabase } from "./supabase-client.js";
 
+/** Limites alinhados à validação Zod em `apps/api` (camada extra no browser contra payloads enormes). */
+const INPUT_MAX = {
+  authEmail: 254,
+  authPassword: 128,
+  tenantIdUuid: 36,
+  dateTimeInput: 48,
+  clientSearch: 200,
+  recoveryLinkLabel: 200,
+  recoveryLinkUrl: 2000,
+  recoveryLinkPlatform: 80,
+  recoveryLinkProductName: 200,
+  recoveryLinkSubmittedBy: 200,
+  recoveryLinkApprovalNote: 1000,
+  messageTemplateName: 200,
+  messageTemplateBody: 8000,
+  messageVariantLabel: 200,
+  messageVariantWeight: 10_000,
+  providerApiKey: 512,
+  providerWebhookToken: 512,
+  providerEndpointUrl: 2048,
+  savedViewName: 200,
+} as const;
+
 function formatPercent(v: number | null): string {
   if (v === null) return "-";
   return new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 }).format(v);
@@ -540,6 +563,15 @@ function normalizeRecoveryLinkUrl(value: string): string {
   if (!trimmed) return trimmed;
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+function isHttpOrHttpsRecoveryUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function recoveryLinkStatusLabel(status: RecoveryLinkApprovalStatus): string {
@@ -2488,6 +2520,12 @@ export function App() {
       return;
     }
 
+    const newLinkUrl = normalizeRecoveryLinkUrl(newRecoveryLinkDraft.url);
+    if (!isHttpOrHttpsRecoveryUrl(newLinkUrl)) {
+      pushToast("Use uma URL que comece com http:// ou https://.");
+      return;
+    }
+
     setRecoveryLinkCreating(true);
     try {
       const response = await dashboardFetch(`${baseUrl}/admin/tenants/${targetTenantId}/recovery-links`, accessToken, {
@@ -2495,7 +2533,7 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: newRecoveryLinkDraft.label.trim(),
-          url: normalizeRecoveryLinkUrl(newRecoveryLinkDraft.url),
+          url: newLinkUrl,
           platform: newRecoveryLinkDraft.platform.trim() || null,
           triggerEventType: newRecoveryLinkDraft.triggerEventType.trim() || null,
           productName: newRecoveryLinkDraft.productName.trim() || null,
@@ -2549,6 +2587,12 @@ export function App() {
       return;
     }
 
+    const savedLinkUrl = normalizeRecoveryLinkUrl(draft.url);
+    if (!isHttpOrHttpsRecoveryUrl(savedLinkUrl)) {
+      pushToast("Use uma URL que comece com http:// ou https://.");
+      return;
+    }
+
     setRecoveryLinkSavingId(linkId);
     try {
       const response = await dashboardFetch(
@@ -2559,7 +2603,7 @@ export function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             label: draft.label.trim(),
-            url: normalizeRecoveryLinkUrl(draft.url),
+            url: savedLinkUrl,
             platform: draft.platform.trim() || null,
             triggerEventType: draft.triggerEventType.trim() || null,
             productName: draft.productName.trim() || null,
@@ -3181,6 +3225,7 @@ export function App() {
               placeholder="Mínimo 8 caracteres"
               required
               minLength={8}
+              maxLength={INPUT_MAX.authPassword}
             />
           </label>
           <label className="auth-gate-field">
@@ -3194,6 +3239,7 @@ export function App() {
               placeholder="Repita a senha"
               required
               minLength={8}
+              maxLength={INPUT_MAX.authPassword}
             />
           </label>
           <button type="submit" className="btn btn-primary auth-gate-submit" disabled={recoveryBusy}>
@@ -3239,6 +3285,7 @@ export function App() {
               }}
               placeholder="voce@empresa.com.br"
               required
+              maxLength={INPUT_MAX.authEmail}
             />
           </label>
           <label className="auth-gate-field">
@@ -3255,6 +3302,7 @@ export function App() {
                 }}
                 placeholder="••••••••"
                 required
+                maxLength={INPUT_MAX.authPassword}
               />
               <button
                 type="button"
@@ -3407,6 +3455,7 @@ export function App() {
                       }}
                       placeholder="Buscar tentativas, eventos, canais..."
                       autoComplete="off"
+                      maxLength={INPUT_MAX.clientSearch}
                     />
                   </div>
                 </div>
@@ -3883,6 +3932,7 @@ export function App() {
                 value={viewName}
                 onChange={(event) => setViewName(event.target.value)}
                 placeholder="Nome para salvar o filtro atual"
+                maxLength={INPUT_MAX.savedViewName}
               />
               <button className="btn btn-tertiary" onClick={onApplyView} disabled={!selectedViewId}>
                 Aplicar filtro
@@ -3975,6 +4025,7 @@ export function App() {
                   value={tenantId}
                   onChange={(event) => setTenantId(event.target.value)}
                   placeholder="Identificador da conta"
+                  maxLength={INPUT_MAX.tenantIdUuid}
                 />
               )}
             </label>
@@ -3985,6 +4036,7 @@ export function App() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar por dia ou volume"
+                maxLength={INPUT_MAX.clientSearch}
               />
             </label>
           </div>
@@ -4001,15 +4053,30 @@ export function App() {
           <div className="filters">
             <label>
               Identificador da conta
-              <input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="Cole o identificador completo" />
+              <input
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                placeholder="Cole o identificador completo"
+                maxLength={INPUT_MAX.tenantIdUuid}
+              />
             </label>
             <label>
               Data inicial
-              <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="2026-03-01 00:00" />
+              <input
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="2026-03-01 00:00"
+                maxLength={INPUT_MAX.dateTimeInput}
+              />
             </label>
             <label>
               Data final
-              <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="2026-03-31 23:59" />
+              <input
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="2026-03-31 23:59"
+                maxLength={INPUT_MAX.dateTimeInput}
+              />
             </label>
             <label>
               Nível de alerta (0 a 1)
@@ -4315,6 +4382,7 @@ export function App() {
                       }}
                       placeholder="Buscar por provedor ou ID"
                       aria-label="Buscar por provedor ou ID"
+                      maxLength={INPUT_MAX.clientSearch}
                     />
                   </div>
                   <div className="attempts-filter-control">
@@ -4954,6 +5022,7 @@ export function App() {
                             }))
                           }
                           placeholder={providerFieldCopy(providerEditing).apiKeyPlaceholder}
+                          maxLength={INPUT_MAX.providerApiKey}
                         />
                       </label>
                     )}
@@ -4969,6 +5038,7 @@ export function App() {
                             }))
                           }
                           placeholder={providerFieldCopy(providerEditing).webhookTokenPlaceholder}
+                          maxLength={INPUT_MAX.providerWebhookToken}
                         />
                       </label>
                     )}
@@ -4984,6 +5054,7 @@ export function App() {
                             }))
                           }
                           placeholder="https://api.seudominio.com/webhooks/..."
+                          maxLength={INPUT_MAX.providerEndpointUrl}
                         />
                       </label>
                     ) : (
@@ -5304,6 +5375,7 @@ export function App() {
                       value={messageEditorName}
                       onChange={(event) => setMessageEditorName(event.target.value)}
                       disabled={settingsMutationsDisabled}
+                      maxLength={INPUT_MAX.messageTemplateName}
                     />
                   </label>
                   <label className="account-field account-field-span2">
@@ -5335,6 +5407,7 @@ export function App() {
                         messageBodyCaretRef.current = { start: t.selectionStart, end: t.selectionEnd };
                       }}
                       disabled={settingsMutationsDisabled}
+                      maxLength={INPUT_MAX.messageTemplateBody}
                     />
                   </label>
                   <div className="account-field account-field-span2">
@@ -5375,6 +5448,7 @@ export function App() {
                                       [v.id]: { ...d, label: event.target.value },
                                     }))
                                   }
+                                  maxLength={INPUT_MAX.messageVariantLabel}
                                 />
                               </label>
                               <label className="account-field">
@@ -5383,6 +5457,7 @@ export function App() {
                                   className="account-input"
                                   type="number"
                                   min={0}
+                                  max={INPUT_MAX.messageVariantWeight}
                                   value={d.weight}
                                   disabled={settingsMutationsDisabled}
                                   onChange={(event) =>
@@ -5406,6 +5481,7 @@ export function App() {
                                       [v.id]: { ...d, body: event.target.value },
                                     }))
                                   }
+                                  maxLength={INPUT_MAX.messageTemplateBody}
                                 />
                               </label>
                               <button
@@ -5589,6 +5665,7 @@ export function App() {
                                       }))
                                     }
                                     disabled={settingsMutationsDisabled}
+                                    maxLength={INPUT_MAX.recoveryLinkLabel}
                                   />
                                 </label>
                                 <label className="account-field">
@@ -5603,6 +5680,7 @@ export function App() {
                                       }))
                                     }
                                     disabled={settingsMutationsDisabled}
+                                    maxLength={INPUT_MAX.recoveryLinkPlatform}
                                   />
                                 </label>
                                 <label className="account-field account-field-span2">
@@ -5617,6 +5695,7 @@ export function App() {
                                       }))
                                     }
                                     disabled={settingsMutationsDisabled}
+                                    maxLength={INPUT_MAX.recoveryLinkUrl}
                                   />
                                 </label>
                                 <label className="account-field">
@@ -5652,6 +5731,7 @@ export function App() {
                                       }))
                                     }
                                     disabled={settingsMutationsDisabled}
+                                    maxLength={INPUT_MAX.recoveryLinkProductName}
                                   />
                                 </label>
                                 <label className="account-field">
@@ -5666,6 +5746,7 @@ export function App() {
                                       }))
                                     }
                                     disabled={settingsMutationsDisabled}
+                                    maxLength={INPUT_MAX.recoveryLinkSubmittedBy}
                                   />
                                 </label>
                                 <label className="account-field account-field--checkbox">
@@ -5785,6 +5866,7 @@ export function App() {
                         }
                         disabled={settingsMutationsDisabled}
                         placeholder="Ex.: Checkout de recuperacao no cartao"
+                        maxLength={INPUT_MAX.recoveryLinkLabel}
                       />
                     </label>
                     <label className="account-field">
@@ -5797,6 +5879,7 @@ export function App() {
                         }
                         disabled={settingsMutationsDisabled}
                         placeholder="Hotmart, Kiwify, Hubla..."
+                        maxLength={INPUT_MAX.recoveryLinkPlatform}
                       />
                     </label>
                     <label className="account-field account-field-span2">
@@ -5809,6 +5892,7 @@ export function App() {
                         }
                         disabled={settingsMutationsDisabled}
                         placeholder="https://..."
+                        maxLength={INPUT_MAX.recoveryLinkUrl}
                       />
                       <span className="inline-help subtle">
                         Pode colar apenas o domínio; o sistema completa `https://` automaticamente.
@@ -5845,6 +5929,7 @@ export function App() {
                         }
                         disabled={settingsMutationsDisabled}
                         placeholder="Opcional"
+                        maxLength={INPUT_MAX.recoveryLinkProductName}
                       />
                     </label>
                     <label className="account-field">
@@ -5857,6 +5942,7 @@ export function App() {
                         }
                         disabled={settingsMutationsDisabled}
                         placeholder="Seu nome ou responsavel pelo link"
+                        maxLength={INPUT_MAX.recoveryLinkSubmittedBy}
                       />
                     </label>
                     <div className="recovery-link-active-toggle account-field-span2">
@@ -5952,6 +6038,7 @@ export function App() {
                         value={adminReviewTenantFilter}
                         onChange={(event) => setAdminReviewTenantFilter(event.target.value)}
                         placeholder="Filtrar por tenant"
+                        maxLength={INPUT_MAX.tenantIdUuid}
                       />
                     </label>
                     <label className="account-field account-field-span2">
@@ -5961,6 +6048,7 @@ export function App() {
                         value={adminReviewSearch}
                         onChange={(event) => setAdminReviewSearch(event.target.value)}
                         placeholder="Buscar por nome, URL, produto ou plataforma"
+                        maxLength={INPUT_MAX.clientSearch}
                       />
                     </label>
                   </div>
@@ -6011,7 +6099,12 @@ export function App() {
                             </div>
                             <label className="account-field account-field-span2" style={{ marginTop: 12 }}>
                               <span className="account-label">URL</span>
-                              <input className="account-input" value={item.url} readOnly />
+                              <input
+                                className="account-input"
+                                value={item.url}
+                                readOnly
+                                maxLength={INPUT_MAX.recoveryLinkUrl}
+                              />
                             </label>
                             <label className="account-field account-field-span2" style={{ marginTop: 12 }}>
                               <span className="account-label">Observação da revisão</span>
@@ -6026,6 +6119,7 @@ export function App() {
                                   }))
                                 }
                                 placeholder="Motivo da aprovação ou rejeição"
+                                maxLength={INPUT_MAX.recoveryLinkApprovalNote}
                               />
                             </label>
                             <div className="filter-actions settings-actions" style={{ marginTop: 12 }}>
@@ -6474,6 +6568,7 @@ export function App() {
                   value={viewsSearch}
                   onChange={(event) => setViewsSearch(event.target.value)}
                   placeholder="Buscar filtros por nome, conta ou período"
+                  maxLength={INPUT_MAX.clientSearch}
                 />
               </div>
               <div className="views-modal-list">
@@ -6495,6 +6590,7 @@ export function App() {
                       className="view-inline-name"
                       defaultValue={view.name}
                       onBlur={(event) => onInlineRenameView(view.id, event.target.value)}
+                      maxLength={INPUT_MAX.savedViewName}
                     />
                     <div className="view-row-meta">
                       {view.isFavorite && <span className="pill pill-warning">Favorita</span>}
@@ -6583,6 +6679,7 @@ export function App() {
                   onChange={(event) => setWebhookChangePassword(event.target.value)}
                   placeholder="Digite sua senha"
                   disabled={webhookChangeBusy}
+                  maxLength={INPUT_MAX.authPassword}
                 />
               </label>
               {webhookChangeError ? (

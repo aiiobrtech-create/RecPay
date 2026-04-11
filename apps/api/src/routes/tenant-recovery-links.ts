@@ -29,9 +29,26 @@ export function normalizeRecoveryLinkUrlInput(value: unknown): unknown {
   return `https://${trimmed}`;
 }
 
+/** Após normalização: só `http:` e `https:` (bloqueia javascript:, data:, ftp:, etc.). */
+export function isHttpOrHttpsRecoveryUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const recoveryLinkBody = z.object({
   label: z.string().min(1).max(200),
-  url: z.preprocess(normalizeRecoveryLinkUrlInput, z.string().url().max(2000)),
+  url: z.preprocess(
+    normalizeRecoveryLinkUrlInput,
+    z
+      .string()
+      .url()
+      .max(2000)
+      .refine(isHttpOrHttpsRecoveryUrl, { message: "url_must_be_http_or_https" }),
+  ),
   platform: z.string().trim().min(1).max(80).nullable().optional(),
   triggerEventType: triggerSchema.nullable().optional(),
   productName: z.string().trim().min(1).max(200).nullable().optional(),
