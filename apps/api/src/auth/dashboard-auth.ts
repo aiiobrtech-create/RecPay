@@ -4,6 +4,7 @@ import { dashboardOperatorAccess, memberships, tenants } from "@re/db";
 import { getDb } from "../db.js";
 import { ensureUserHasTenantMembership } from "../lib/first-login-provision.js";
 import { getSupabaseAdmin } from "../lib/supabase-admin.js";
+import { timingSafeStringEqual } from "../lib/secure-token-compare.js";
 
 /**
  * Quando `true`, rotas de dashboard exigem `Authorization: Bearer` (access token do Supabase Auth)
@@ -29,7 +30,7 @@ export function isAdminTokenAuthorized(req: FastifyRequest): boolean {
   if (!expected) return false;
   const raw = req.headers["x-admin-token"];
   const provided = (Array.isArray(raw) ? raw[0] : raw)?.trim();
-  return Boolean(provided && provided === expected);
+  return Boolean(provided && timingSafeStringEqual(provided, expected));
 }
 
 type DashboardAuthenticatedUser = {

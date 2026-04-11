@@ -31,7 +31,7 @@ Checklist alinhado a `PROJETO.md` e `CRONOGRAMA.md` (Etapas 0–1).
 
 - **`NODE_ENV=production`** ou **`API_ENV=production`**: a API **falha ao iniciar** se `DASHBOARD_AUTH_REQUIRED` não estiver ativo (`true`/`1`), para não expor o modo legado (`?tenantId=` sem Bearer). No front, use **`VITE_DASHBOARD_AUTH_REQUIRED=true`** no build.
 - Webhook com **`?provider=generic`**: em produção configure **`WEBHOOK_GENERIC_SECRET`** e envie o header **`x-webhook-generic-secret`**, ou defina **`ALLOW_INSECURE_GENERIC_WEBHOOK=true`** apenas se aceitar o risco (token só no path).
-- **`HEALTH_READY_TOKEN`** (opcional): se definido, `GET /health/ready` só devolve `database` / `redis` / `queue` com **`Authorization: Bearer <token>`** ou **`X-Health-Token`**; caso contrário responde só `{ ok, ready }`.
+- **`HEALTH_READY_TOKEN`** (opcional): em **produção** (`NODE_ENV` ou `API_ENV=production`), sem esta variável `GET /health/ready` responde só `{ ok, ready }` (não expõe estado de DB/Redis/fila). **Com** token definido, o detalhe completo só vem com **`Authorization: Bearer <token>`** ou **`X-Health-Token`** válidos; pedidos inválidos recebem só `{ ok, ready }`. Em **desenvolvimento**, sem token configurado, o endpoint pode devolver o detalhe completo para facilitar debug local.
 - **Reverse proxy** (Nginx/Caddy): enviar `X-Forwarded-For` / `X-Real-IP` de forma correta; opcionalmente **`TRUST_PROXY_HOPS=1`** (um salto) para o rate limit por IP refletir o cliente real.
 - **`npm audit`:** avisos moderados de **esbuild** via **`drizzle-kit`** (ferramenta CLI em desenvolvimento) podem persistir até o upstream atualizar dependências; não afetam o runtime da API em produção. Evite `npm audit fix --force` sem rever o impacto em migrações.
 

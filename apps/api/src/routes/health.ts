@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { getAppIdentity } from "@re/app-config";
 import { Redis } from "ioredis";
 import { checkDatabase } from "../db.js";
+import { isProductionLike } from "../lib/production-env.js";
 import { getEventsQueue } from "../queue-singleton.js";
 
 function healthReadyTokenValid(req: FastifyRequest): boolean {
@@ -61,6 +62,12 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
     const ok = database && redisConn && queueAvailable;
     const detailedTokenConfigured = Boolean(process.env.HEALTH_READY_TOKEN?.trim());
     if (detailedTokenConfigured && !healthReadyTokenValid(req)) {
+      await reply.status(ok ? 200 : 503).send({ ok, ready: ok });
+      return;
+    }
+
+    // Em produção sem HEALTH_READY_TOKEN, não expor estado de DB/Redis/fila (reconhecimento).
+    if (isProductionLike() && !detailedTokenConfigured) {
       await reply.status(ok ? 200 : 503).send({ ok, ready: ok });
       return;
     }

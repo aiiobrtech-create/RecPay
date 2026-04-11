@@ -12,6 +12,7 @@ import { enqueueProcessEvent } from "@re/queue";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getDb } from "../db.js";
+import { timingSafeStringEqual } from "../lib/secure-token-compare.js";
 import { getEventsQueue } from "../queue-singleton.js";
 
 const tenantIdQuery = z.object({
@@ -41,7 +42,7 @@ function isAdminAuthorized(req: FastifyRequest): { ok: true } | { ok: false; err
   if (!expected) return { ok: false, error: "admin_token_not_configured" };
   const provided = adminTokenFromHeader(req)?.trim();
   if (!provided) return { ok: false, error: "admin_token_missing" };
-  if (provided !== expected) return { ok: false, error: "admin_token_invalid" };
+  if (!timingSafeStringEqual(provided, expected)) return { ok: false, error: "admin_token_invalid" };
   return { ok: true };
 }
 

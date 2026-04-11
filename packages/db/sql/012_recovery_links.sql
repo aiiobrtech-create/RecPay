@@ -1,4 +1,10 @@
-CREATE TYPE recovery_link_approval_status AS ENUM ('pending_review', 'approved', 'rejected');
+DO $rl_type$
+BEGIN
+  CREATE TYPE recovery_link_approval_status AS ENUM ('pending_review', 'approved', 'rejected');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$rl_type$;
 
 CREATE TABLE IF NOT EXISTS recovery_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

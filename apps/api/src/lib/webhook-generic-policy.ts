@@ -1,14 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
 import { isProductionLike } from "./production-env.js";
+import { timingSafeStringEqual } from "./secure-token-compare.js";
 
 const GENERIC_SECRET_HEADER = "x-webhook-generic-secret";
-
-function timingSafeStringEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a, "utf8");
-  const bb = Buffer.from(b, "utf8");
-  if (ba.length !== bb.length) return false;
-  return timingSafeEqual(ba, bb);
-}
 
 function headerTrimmed(
   headers: Record<string, string | string[] | undefined>,
