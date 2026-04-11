@@ -44,6 +44,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
     highlights: [
       "Documento desenhado para operação SaaS B2B de recuperação automática de vendas e cobrança recorrente por plano.",
       "Prevê regras de acesso por conta, uso aceitável, suspensão, integrações com terceiros e proteção de propriedade intelectual.",
+      "Inclui direito de arrependimento em 7 dias e reembolso nos termos aplicáveis, com canal formal pelo suporte.",
       "Identifica a operação comercial da marca RecPay como Gabrielle Vellozo Camacho Neves, MEI, CNPJ 65.748.040/0001-61.",
     ],
     sections: [
@@ -103,8 +104,18 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
         ],
       },
       {
+        id: "arrependimento-reembolso",
+        title: "7. Direito de arrependimento e reembolso",
+        body: [
+          "Em contratos firmados à distância, quando aplicável o regime consumerista, o cliente poderá exercer o direito de arrependimento no prazo de 7 (sete) dias corridos, nos termos do art. 49 da Lei nº 8.078/1990 (Código de Defesa do Consumidor), contado conforme a lei e a confirmação da contratação ou do pagamento.",
+          "Para planos contratados pelo checkout online (autosserviço), o pedido de cancelamento e reembolso dentro do prazo deve ser enviado ao suporte oficial em suporte@recpay.com.br, com identificação da conta e da assinatura. Verificada a elegibilidade, a RecPay providenciará o estorno pelo mesmo meio de pagamento utilizado, observando prazos de processamento de instituições financeiras e do provedor de pagamentos.",
+          "O benefício de arrependimento na primeira contratação por conta ou e-mail identificável não impede a aplicação de normas sobre uso indevido, fraude, chargeback abusivo ou descumprimento destes Termos.",
+          "Contratos firmados sob proposta comercial, pedido de compra ou instrumento específico (incluindo modalidades enterprise ou volumes negociados) poderão prever condições de rescisão e reembolso distintas quando expressamente aceitas por escrito, respeitadas as normas imperativas aplicáveis.",
+        ],
+      },
+      {
         id: "dados-cliente",
-        title: "7. Dados, conteúdo e responsabilidades do cliente",
+        title: "8. Dados, conteúdo e responsabilidades do cliente",
         body: [
           "O cliente permanece titular ou legítimo controlador dos dados, eventos, listas, mensagens, parâmetros e conteúdos que inserir, transmitir ou processar na plataforma, observadas as hipóteses em que a RecPay atuar como controladora de dados próprios da relação comercial.",
           "Compete ao cliente definir finalidades legítimas, base legal adequada, janela de retenção compatível, regras de opt-out, governança interna e atendimento aos direitos dos titulares quando os dados estiverem ligados à sua operação.",
@@ -113,7 +124,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "propriedade",
-        title: "8. Propriedade intelectual",
+        title: "9. Propriedade intelectual",
         body: [
           "A plataforma, o software, a marca, a identidade visual, a documentação, os fluxos, os relatórios, os layouts, os bancos estruturais, os textos institucionais e demais elementos da RecPay são protegidos pela legislação aplicável e permanecem de titularidade da RecPay ou de seus licenciantes.",
           "Nenhuma disposição destes Termos transfere ao cliente direitos de propriedade intelectual, salvo licença limitada, revogável, não exclusiva e intransferível para uso do serviço conforme sua finalidade contratada.",
@@ -122,7 +133,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "disponibilidade",
-        title: "9. Disponibilidade, segurança e suporte",
+        title: "10. Disponibilidade, segurança e suporte",
         body: [
           "A RecPay empregará medidas técnicas e administrativas razoáveis para manter a segurança e a continuidade dos serviços, podendo realizar manutenções programadas, ajustes de arquitetura, atualizações, correções e medidas emergenciais de contenção.",
           "Não há garantia de operação totalmente ininterrupta ou livre de falhas, especialmente em razão de dependência de internet, infraestrutura de terceiros, APIs externas, eventos de força maior, incidentes de segurança ou comportamento imprevisível de provedores integrados.",
@@ -131,7 +142,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "suspensao",
-        title: "10. Suspensão e rescisão",
+        title: "11. Suspensão e rescisão",
         body: [
           "A RecPay poderá suspender imediatamente, total ou parcialmente, o acesso à plataforma quando identificar risco relevante de fraude, violação legal, uso abusivo, tentativa de invasão, inadimplência, envio massivo irregular, ordem de autoridade competente ou ameaça à segurança de terceiros.",
           "O cliente poderá encerrar o uso conforme as regras do plano e do meio de contratação, observando ciclos já faturados, cláusulas mínimas de permanência, serviços já prestados e obrigações pendentes.",
@@ -140,7 +151,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "limitacao",
-        title: "11. Limitação de responsabilidade",
+        title: "12. Limitação de responsabilidade",
         body: [
           "A RecPay não garante aumento específico de conversão, recuperação mínima, faturamento, ROI, aprovação bancária, performance de campanhas, disponibilidade de terceiros, êxito em chargeback ou resultados comerciais determinados.",
           "Na máxima extensão permitida em lei, a responsabilidade da RecPay fica limitada aos danos diretos comprovadamente causados por descumprimento contratual próprio, observados os limites financeiros eventualmente previstos no contrato aplicável.",
@@ -149,7 +160,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "privacidade",
-        title: "12. Privacidade e conformidade",
+        title: "13. Privacidade e conformidade",
         body: [
           "O tratamento de dados pessoais relacionado ao uso da plataforma seguirá a Política de Privacidade da RecPay e a legislação aplicável, inclusive a Lei nº 13.709/2018 (LGPD) e, quando pertinente, a Lei nº 12.965/2014 (Marco Civil da Internet).",
           "Em operações B2B, a distribuição de papéis entre controlador e operador poderá variar conforme a atividade: dados de cadastro, suporte, cobrança e antifraude da relação comercial podem ser tratados pela RecPay como controladora; dados operacionais da base do cliente tendem a ser tratados conforme instruções e finalidade definidas pelo contratante.",
@@ -158,7 +169,7 @@ export const legalDocuments: Record<LegalDocument["slug"], LegalDocument> = {
       },
       {
         id: "foro",
-        title: "13. Lei aplicável e foro",
+        title: "14. Lei aplicável e foro",
         body: [
           "Estes Termos são regidos pelas leis da República Federativa do Brasil.",
           "Fica eleito o foro da comarca do domicílio da contratada responsável pela operação da RecPay, salvo disposição contratual específica em sentido diverso ou competência legal inderrogável.",

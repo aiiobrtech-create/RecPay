@@ -33,6 +33,7 @@
     "tenants:list": "node scripts/list-tenants.mjs",
     "link:membership": "node scripts/link-user-membership.mjs",
     "user:create": "node scripts/create-supabase-auth-user.mjs",
+    "user:provision": "node scripts/provision-user-with-plan.mjs",
     "user:reset-password": "node scripts/reset-supabase-user-password.mjs",
     "user:update-email": "node scripts/update-supabase-user-email.mjs",
     "report:usage": "node scripts/report-tenant-usage.mjs",

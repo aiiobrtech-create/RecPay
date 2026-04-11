@@ -39,6 +39,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { legalContact } from './legal-content';
 
 /** Painel `@re/web` (login Supabase na raiz). Override: `VITE_DASHBOARD_URL` no `.env` da LP. */
 const DASHBOARD_URL =
@@ -1285,7 +1286,7 @@ function PricingSection() {
             </p>
             {isStripeTestMode ? (
               <p className="max-w-xl text-center text-xs text-on-surface-variant">
-                Configure os links `VITE_STRIPE_TEST_LINK_*` para testar o checkout sem abrir links de produÃ§Ã£o.
+                Configure os links `VITE_STRIPE_TEST_LINK_*` para testar o checkout sem abrir links de produção.
               </p>
             ) : null}
           </motion.div>
@@ -1387,6 +1388,53 @@ function PricingSection() {
               </motion.article>
             );
           })}
+        </motion.div>
+
+        <motion.div
+          className="mt-12 sm:mt-16"
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportEnter}
+          variants={enter.stagger}
+        >
+          <motion.div
+            variants={enter.item}
+            className="mx-auto max-w-3xl rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-white px-5 py-6 shadow-sm sm:rounded-3xl sm:px-10 sm:py-8"
+          >
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                <ShieldCheck className="h-8 w-8 text-primary" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1 space-y-4">
+                <div>
+                  <p className="font-headline text-xs font-bold uppercase tracking-widest text-primary">Comece tranquilo</p>
+                  <h3 className="mt-2 font-headline text-xl font-bold tracking-tight text-on-surface sm:text-2xl">
+                    A gente aposta no produto — o risco fica com a gente
+                  </h3>
+                </div>
+                <p className="text-sm leading-relaxed text-on-surface sm:text-[15px]">
+                  A ideia é você colocar a RecPay para rodar e{' '}
+                  <strong className="font-semibold text-on-surface">ver recuperação de verdade</strong> no seu fluxo. Você tem{' '}
+                  <strong className="font-semibold text-on-surface">7 dias corridos</strong> após a{' '}
+                  <strong className="font-semibold text-on-surface">primeira cobrança</strong> para decidir com calma — sem pressa, sem
+                  letras miúdas.
+                </p>
+                <p className="text-sm leading-relaxed text-on-surface-variant sm:text-[15px]">
+                  Se não for pra você, tudo bem: um e-mail para{' '}
+                  <a
+                    href={`mailto:${legalContact.supportEmail}?subject=Reembolso%20-%20garantia%207%20dias`}
+                    className="font-semibold text-primary underline-offset-4 hover:underline"
+                  >
+                    {legalContact.supportEmail}
+                  </a>{' '}
+                  com a conta que você usou ao assinar, e <strong className="font-semibold text-on-surface">devolvemos 100%</strong>. A
+                  garantia está aí para você testar com a cabeça livre, sem ficar travado na dúvida na hora de assinar. Do nosso lado, o
+                  foco é outro: <strong className="font-semibold text-on-surface">recuperar venda</strong> de verdade e fazer você{' '}
+                  <strong className="font-semibold text-on-surface">querer continuar</strong>.
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>
