@@ -231,7 +231,6 @@ const PRICING_PLANS = [
     name: 'Essencial',
     description: 'Para estruturar recuperação com volume moderado.',
     monthlyPrice: 197,
-    conversionFee: '7%',
     features: [
       'Até 100 recuperações/mês',
       'Webhooks no limite do plano',
@@ -245,7 +244,6 @@ const PRICING_PLANS = [
     name: 'Growth',
     description: 'O equilíbrio entre escala e custo — o mais escolhido.',
     monthlyPrice: 497,
-    conversionFee: '5%',
     features: [
       'Até 300 recuperações/mês',
       'Mais eventos que o Essencial',
@@ -260,7 +258,6 @@ const PRICING_PLANS = [
     name: 'Scale',
     description: 'Volume alto, multi-tenant e requisitos enterprise.',
     monthlyPrice: 997,
-    conversionFee: 'Sob consulta',
     features: [
       'Limites e excedente no contrato',
       'Pacote fechado com o comercial',
@@ -1343,10 +1340,6 @@ function PricingSection() {
                     <p className="mt-2 text-sm text-on-surface-variant">Faturamento mensal.</p>
                   )}
                 </div>
-                <div className="mt-4 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
-                  Taxa por conversão: {plan.conversionFee}
-                </div>
-
                 <ul className="mt-8 flex flex-1 flex-col gap-3 text-sm text-on-surface-variant">
                   {plan.features.map((f) => (
                     <li key={f} className="flex gap-3">
